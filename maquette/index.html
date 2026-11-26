@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="CityFinder — maquette interactive : géolocalisez vos photos, vérifiez les communes sur la carte et renommez vos fichiers.">
+  <title>CityFinder — Maquette de démonstration</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23b9431f'/%3E%3Cpath d='M16 26s8-7 8-12a8 8 0 1 0-16 0c0 5 8 12 8 12Z' fill='none' stroke='%23fff8f0' stroke-width='2.2'/%3E%3Ccircle cx='16' cy='14' r='3' fill='%23fff8f0'/%3E%3C/svg%3E">
+  <script>
+    (function () {
+      try {
+        var requested = new URLSearchParams(location.search).get("theme");
+        var stored = localStorage.getItem("cityfinder-theme");
+        var preferred = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = requested === "dark" || requested === "light" ? requested : (stored || preferred);
+      } catch (e) { /* thème par défaut */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.css">
+  <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.Default.css">
+  <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+
+  <svg class="svg-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6a2 2 0 0 1 1.6.8L12 7.5h6.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5Z"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M9.1 9a3 3 0 0 1 5.82 1c0 2-3 2.5-3 4.5"/><path d="M12 17.5h.01"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-square" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10Z"/><path d="m8.8 11.8 2.1 2.1 4.4-4.6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6L19 12Z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 15-4.6-4.6L6 21"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.7"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4.2-4.2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="m7.8 12.2 2.7 2.7 5.7-6"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.8 9.8 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2Z"/><path d="M9 3v16M15 5v16"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5M12 7.5h.01"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="1.4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 5 13 3h-2L9.5 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12.5" r="3.5"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2.5c.6 5.4 4.1 8.9 9.5 9.5-5.4.6-8.9 4.1-9.5 9.5-.6-5.4-4.1-8.9-9.5-9.5 5.4-.6 8.9-4.1 9.5-9.5Z"/></symbol>
+  </svg>
+
+  <div class="app-frame">
+    <header class="titlebar">
+      <div class="titlebar__left">
+        <button class="brand" type="button" data-action="home" aria-label="CityFinder — revenir à l’accueil">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="9"/><path d="M16 26s8-7 8-12a8 8 0 1 0-16 0c0 5 8 12 8 12Z"/><circle cx="16" cy="14" r="3"/></svg>
+          </span>
+          <span class="brand__name">City<span>Finder</span></span>
+        </button>
+        <span class="titlebar__divider" aria-hidden="true"></span>
+        <button class="folder-pill" id="folder-pill" type="button" data-action="choose-folder" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg>
+          <span class="folder-pill__name" id="folder-pill-name">démo-photos</span>
+          <span class="folder-pill__count" id="folder-pill-count">110</span>
+          <svg class="icon icon--xs folder-pill__chevron" aria-hidden="true"><use href="#i-chevron"></use></svg>
+        </button>
+        <span class="local-pill" id="local-pill" title="Les images ne quittent pas cet appareil">
+          <span class="dot"></span>Local
+        </span>
+      </div>
+      <div class="titlebar__right">
+        <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="Passer au thème sombre" title="Changer de thème">
+          <svg class="icon theme-toggle__sun" aria-hidden="true"><use href="#i-sun"></use></svg>
+          <svg class="icon theme-toggle__moon" aria-hidden="true"><use href="#i-moon"></use></svg>
+        </button>
+        <button class="icon-button" type="button" data-action="about" aria-label="À propos et licences" title="À propos">
+          <svg class="icon" aria-hidden="true"><use href="#i-help"></use></svg>
+        </button>
+        <div class="window-controls" aria-hidden="true">
+          <span class="window-control"><svg class="icon"><use href="#i-minus"></use></svg></span>
+          <span class="window-control"><svg class="icon"><use href="#i-square"></use></svg></span>
+          <span class="window-control window-control--close"><svg class="icon"><use href="#i-x"></use></svg></span>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="app-main" tabindex="-1">
+
+      <!-- ============ ACCUEIL ============ -->
+      <section class="view view--welcome is-active" id="view-welcome" aria-labelledby="welcome-title">
+        <div class="welcome">
+          <div class="welcome__copy">
+            <p class="eyebrow"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-spark"></use></svg> Atlas photo pour Windows</p>
+            <h1 class="display-title" id="welcome-title">Vos photos savent <em>où</em><br>elles ont été prises.</h1>
+            <p class="welcome__lede">CityFinder lit les coordonnées GPS de vos photos, retrouve la commune la plus proche et ajoute son nom au fichier. Comparez les environs sur la carte, corrigez, puis renommez en un clic.</p>
+            <div class="welcome__actions">
+              <button class="btn btn--primary btn--hero" type="button" data-action="choose-folder">
+                <svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg>
+                Choisir un dossier
+              </button>
+              <button class="btn btn--ghost btn--hero" type="button" data-action="demo">
+                <svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg>
+                Explorer la démonstration
+                <span class="count-pill">110 photos</span>
+              </button>
+            </div>
+            <button class="welcome-resume" id="welcome-resume" type="button" data-action="resume-demo" hidden>
+              <span class="welcome-resume__icon"><svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg></span>
+              <span><strong>Reprendre la session précédente</strong><small id="welcome-resume-text"></small></span>
+              <svg class="icon welcome-resume__arrow" aria-hidden="true"><use href="#i-arrow"></use></svg>
+            </button>
+            <ul class="trust-list">
+              <li><svg class="icon" aria-hidden="true"><use href="#i-image"></use></svg> JPEG, MPO, TIFF, PNG, WebP</li>
+              <li><svg class="icon" aria-hidden="true"><use href="#i-pin"></use></svg> 8 communes dans la démo</li>
+              <li><svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg> Coordonnées seules, jamais les images</li>
+            </ul>
+            <p class="welcome__privacy"><strong>Vos photos restent ici.</strong> Seules les coordonnées GPS sont envoyées à Photon pour identifier la commune ; la carte charge des tuiles OpenStreetMap.</p>
+          </div>
+
+          <div class="welcome__visual" aria-hidden="true">
+            <div class="collage">
+              <svg class="collage__route" viewBox="0 0 560 620" preserveAspectRatio="none">
+                <path d="M115 455C80 384 118 312 215 283c76-23 110-82 158-128 45-43 95-47 139-20" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 9" stroke-linecap="round"/>
+                <circle cx="115" cy="455" r="4" fill="currentColor"/>
+                <circle cx="373" cy="155" r="4" fill="currentColor"/>
+                <circle cx="512" cy="135" r="4" fill="currentColor"/>
+              </svg>
+              <figure class="photo-print photo-print--one">
+                <div class="photo-print__image"><img data-hero-photo="DEMO_0001.jpg" alt=""></div>
+                <figcaption><svg class="icon icon--xs"><use href="#i-pin"></use></svg> Paris</figcaption>
+              </figure>
+              <figure class="photo-print photo-print--two">
+                <div class="photo-print__image"><img data-hero-photo="DEMO_0013.jpg" alt=""></div>
+                <figcaption><svg class="icon icon--xs"><use href="#i-pin"></use></svg> Lyon</figcaption>
+              </figure>
+              <figure class="photo-print photo-print--three">
+                <div class="photo-print__image"><img data-hero-photo="DEMO_0025.jpg" alt=""></div>
+                <figcaption><svg class="icon icon--xs"><use href="#i-pin"></use></svg> Annecy</figcaption>
+              </figure>
+              <div class="float-stat">
+                <span class="float-stat__number">96</span>
+                <span class="float-stat__label">photos localisées<br><small>sur 110</small></span>
+              </div>
+              <div class="float-route">
+                <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+                <span>8 communes<br><small>réparties en France</small></span>
+              </div>
+              <span class="collage__stamp">Données de démonstration<br>démo-photos</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ ANALYSE ============ -->
+      <section class="view view--scan" id="view-scan" aria-labelledby="scan-title" hidden>
+        <div class="scan">
+          <div class="scan__copy">
+            <p class="eyebrow eyebrow--live"><span class="live-dot"></span> Analyse en cours</p>
+            <h1 class="page-title" id="scan-title">On identifie vos communes.</h1>
+            <p class="scan__folder"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-folder"></use></svg> <span id="scan-folder-name">démo-photos</span> <span class="muted">· 110 fichiers</span></p>
+
+            <div class="scan__progress">
+              <div class="progress-ring" id="scan-ring" style="--p:0">
+                <div class="progress-ring__center">
+                  <strong id="scan-percent">0 %</strong>
+                  <span id="scan-stage-short">Lecture</span>
+                </div>
+              </div>
+              <div class="scan__stages">
+                <div class="scan-stage" data-stage="metadata">
+                  <span class="scan-stage__icon"><svg class="icon icon--xs"><use href="#i-check"></use></svg></span>
+                  <div><strong>Lecture des métadonnées</strong><span id="scan-meta-detail">110 fichiers à parcourir</span></div>
+                  <span class="scan-stage__value" id="scan-meta-value">—</span>
+                </div>
+                <div class="scan-stage" data-stage="places">
+                  <span class="scan-stage__icon"><svg class="icon icon--xs"><use href="#i-pin"></use></svg></span>
+                  <div><strong>Recherche des communes</strong><span>Photon · 1 requête/seconde</span></div>
+                  <span class="scan-stage__value" id="scan-places-value">0 / 75</span>
+                </div>
+                <div class="scan-stage" data-stage="thumbs">
+                  <span class="scan-stage__icon"><svg class="icon icon--xs"><use href="#i-image"></use></svg></span>
+                  <div><strong>Préparation des aperçus</strong><span>Orientation et miniatures</span></div>
+                  <span class="scan-stage__value" id="scan-thumbs-value">—</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="scan-log" aria-live="polite" aria-atomic="false">
+              <div class="scan-log__head">
+                <span><span class="live-dot"></span> Détections récentes</span>
+                <span id="scan-log-count">0 lieu</span>
+              </div>
+              <ul id="scan-log-list">
+                <li class="scan-log__empty">En attente des premières coordonnées…</li>
+              </ul>
+            </div>
+
+            <div class="scan__actions">
+              <button class="btn btn--ghost" type="button" data-action="cancel-scan">Annuler</button>
+              <button class="link-button" type="button" data-action="skip-scan">Passer l’animation</button>
+            </div>
+            <p class="scan__note"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-info"></use></svg> Démonstration accélérée. En réel, 75 lieux uniques sont interrogés à 1 requête/seconde (≈ 75 s), avec cache local.</p>
+          </div>
+
+          <div class="scan__visual" aria-hidden="true">
+            <div class="scan-stack">
+              <div class="scan-stack__card scan-stack__card--back"><img data-hero-photo="DEMO_0037.jpg" alt=""></div>
+              <div class="scan-stack__card scan-stack__card--mid"><img data-hero-photo="DEMO_0049.jpg" alt=""></div>
+              <div class="scan-stack__card scan-stack__card--front">
+                <img data-hero-photo="DEMO_0025.jpg" alt="">
+                <div class="scan-stack__city"><svg class="icon icon--xs"><use href="#i-pin"></use></svg> Annecy <span>12 photos</span></div>
+                <span class="scan-stack__line"></span>
+              </div>
+              <div class="scan-stack__chip chip--gps"><svg class="icon icon--xs"><use href="#i-pin"></use></svg> 96 géolocalisées</div>
+              <div class="scan-stack__chip chip--missing"><svg class="icon icon--xs"><use href="#i-alert"></use></svg> 14 sans GPS</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ RÉSULTATS ============ -->
+      <section class="view view--results" id="view-results" aria-labelledby="results-title" hidden>
+        <header class="results-header">
+          <div class="results-header__copy">
+            <p class="eyebrow eyebrow--success"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-check-circle"></use></svg> Analyse terminée <span class="eyebrow__muted" id="results-folder-name">· démo-photos</span></p>
+            <h1 class="page-title" id="results-title">8 communes, 96 photos localisées.</h1>
+            <p class="results-meta">
+              <span><strong>110</strong> photos</span>
+              <span><strong>96</strong> géolocalisées</span>
+              <span><strong>14</strong> sans GPS</span>
+              <span><strong>8</strong> communes</span>
+            </p>
+            <p class="existing-summary" id="existing-summary" hidden>
+              <svg class="icon icon--xs" aria-hidden="true"><use href="#i-info"></use></svg>
+              <span id="existing-summary-text"></span>
+            </p>
+          </div>
+          <div class="results-header__actions">
+            <button class="btn btn--ghost btn--compact map-toggle" id="map-toggle" type="button" aria-controls="map-panel" aria-expanded="true">
+              <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+              <span>Carte</span>
+            </button>
+            <button class="btn btn--primary" id="rename-button" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>
+              <span id="rename-button-label">Renommer 96 photos</span>
+            </button>
+            <p class="selection-note" id="selection-note">96 photos sélectionnées · 8 communes</p>
+          </div>
+        </header>
+
+        <div class="resume-banner" id="resume-banner" hidden>
+          <svg class="icon icon--sm" aria-hidden="true"><use href="#i-undo"></use></svg>
+          <span><strong>Reprendre où vous en étiez.</strong> <span id="resume-summary"></span></span>
+          <button class="link-button" type="button" data-action="undo-prior-renames">
+            <svg class="icon icon--xs" aria-hidden="true"><use href="#i-undo"></use></svg>
+            Annuler les renommages
+          </button>
+          <button class="link-button" type="button" data-action="reset-session">Réinitialiser la démo</button>
+        </div>
+
+        <div class="undo-banner" id="undo-banner" hidden>
+          <svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg>
+          <span><strong>96 photos renommées.</strong> Les noms d’origine peuvent être restaurés.</span>
+          <button class="link-button" type="button" data-action="undo-rename"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-undo"></use></svg> Annuler les renommages</button>
+        </div>
+
+        <div class="results-workspace" id="results-workspace">
+          <section class="results-list" aria-label="Photos analysées">
+            <div class="results-toolbar">
+              <div class="toolbar-row">
+                <div class="tabs" role="tablist" aria-label="Filtrer les photos">
+                  <button class="tab is-active" type="button" role="tab" aria-selected="true" data-filter="all">Toutes <span class="tab__count" data-count="all">110</span></button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-filter="located">Localisées <span class="tab__count" data-count="located">96</span></button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-filter="missing">Sans GPS <span class="tab__count" data-count="missing">14</span></button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-filter="modified">Modifiées <span class="tab__count" data-count="modified">0</span></button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-filter="renamed">Renommées <span class="tab__count" data-count="renamed">0</span></button>
+                </div>
+                <label class="search-field" for="search-input">
+                  <svg class="icon icon--sm" aria-hidden="true"><use href="#i-search"></use></svg>
+                  <input id="search-input" type="search" placeholder="Fichier ou ville…" autocomplete="off" spellcheck="false">
+                  <span class="sr-only">Rechercher un fichier ou une ville</span>
+                </label>
+                <label class="sort-field" for="sort-select">
+                  <span class="sr-only">Trier par</span>
+                  <select id="sort-select">
+                    <option value="date-desc">Date récente</option>
+                    <option value="date-asc">Date ancienne</option>
+                    <option value="name-asc">Nom A–Z</option>
+                    <option value="city-asc">Ville A–Z</option>
+                  </select>
+                  <svg class="icon icon--xs" aria-hidden="true"><use href="#i-chevron"></use></svg>
+                </label>
+              </div>
+              <div class="toolbar-row toolbar-row--cities">
+                <div class="city-scroll" id="city-chips" role="group" aria-label="Filtrer par commune"></div>
+                <label class="select-all">
+                  <input type="checkbox" id="select-all" aria-label="Tout sélectionner : photos visibles ayant une ville">
+                  <span class="check-box" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+                  <span>Tout sélectionner</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="photo-scroll" id="photo-scroll">
+              <div class="photo-grid" id="photo-grid"></div>
+              <div class="empty-state" id="empty-state" hidden>
+                <span class="empty-state__icon"><svg class="icon"><use href="#i-image"></use></svg></span>
+                <h2>Aucune photo dans ce filtre</h2>
+                <p>Essayez une autre recherche ou réinitialisez les filtres.</p>
+                <button class="btn btn--ghost" type="button" data-action="reset-filters">Réinitialiser les filtres</button>
+              </div>
+              <p class="list-footnote"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-info"></use></svg> Cliquez sur une miniature pour la retrouver sur la carte. Utilisez « Agrandir » pour ouvrir la fiche.</p>
+            </div>
+          </section>
+
+          <div class="map-scrim" id="map-scrim" hidden></div>
+          <aside class="map-panel" id="map-panel" aria-labelledby="map-title">
+            <header class="map-panel__header">
+              <div>
+                <h2 id="map-title">Carte des prises de vue</h2>
+                <p><span id="map-point-count">96 points</span> <span class="muted">·</span> <span id="map-city-count">8 communes</span></p>
+              </div>
+              <div class="map-panel__actions">
+                <button class="icon-button" type="button" data-action="map-fit" aria-label="Voir toutes les photos sur la carte" title="Tout voir">
+                  <svg class="icon" aria-hidden="true"><use href="#i-expand"></use></svg>
+                </button>
+                <button class="icon-button map-close" type="button" data-action="map-close" aria-label="Masquer la carte" title="Masquer la carte">
+                  <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+                </button>
+              </div>
+            </header>
+            <div class="map-canvas-wrap">
+              <div id="map-canvas" class="map-canvas" role="region" aria-label="Carte des photos géolocalisées"></div>
+              <div class="map-empty" id="map-empty" hidden>
+                <span class="map-empty__icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                <strong>Aucune photo géolocalisée ici</strong>
+                <p>Les photos sans GPS n’apparaissent pas sur la carte.</p>
+                <button class="link-button" type="button" data-action="reset-filters">Afficher toutes les photos</button>
+              </div>
+              <div class="map-offline" id="map-offline" hidden>
+                <svg class="icon icon--xs" aria-hidden="true"><use href="#i-alert"></use></svg>
+                Fond de carte indisponible — les repères restent utilisables.
+              </div>
+              <div class="map-legend" id="map-legend">
+                <span><i class="map-dot map-dot--on"></i>Sélectionnée</span>
+                <span><i class="map-dot map-dot--off"></i>Non sélectionnée</span>
+                <span><i class="map-dot map-dot--active"></i>Active</span>
+                <small>Cliquez sur un repère ou un groupe pour retrouver les photos.</small>
+              </div>
+            </div>
+            <footer class="map-panel__footer">
+              <span><strong>14</strong> photos sans GPS hors carte</span>
+              <span class="map-panel__credits">
+                © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> · <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> · <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">OpenMapTiles</a>
+                <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener noreferrer" title="Signaler un problème de carte">Signaler</a>
+              </span>
+            </footer>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ============ SUCCÈS ============ -->
+      <section class="view view--success" id="view-success" aria-labelledby="success-title" hidden>
+        <div class="success">
+          <div class="success__halo" aria-hidden="true"></div>
+          <span class="success__mark"><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg></span>
+          <p class="eyebrow eyebrow--success">Renommage terminé</p>
+          <h1 class="display-title display-title--success" id="success-title"><span id="success-count">96</span> photos renommées.</h1>
+          <p class="success__lede">Les fichiers de <strong>démo-photos</strong> portent désormais le nom de leur commune. Aucune image n’a été copiée, déplacée ou modifiée.</p>
+          <div class="success__cities" id="success-cities"></div>
+          <div class="success__examples" id="success-examples"></div>
+          <div class="success__actions">
+            <button class="btn btn--primary" type="button" data-action="back-results">
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow"></use></svg>
+              Retour aux photos
+            </button>
+            <button class="btn btn--ghost" type="button" data-action="undo-rename">
+              <svg class="icon" aria-hidden="true"><use href="#i-undo"></use></svg>
+              Annuler les renommages
+            </button>
+            <button class="link-button" type="button" data-action="open-folder">
+              <svg class="icon icon--xs" aria-hidden="true"><use href="#i-external"></use></svg>
+              Ouvrir le dossier
+            </button>
+          </div>
+          <p class="success__note"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-info"></use></svg> L’annulation reste disponible jusqu’à la fermeture de l’application.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span class="footer-local"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-shield"></use></svg> Vos photos restent sur cet appareil</span>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <span>Géocodage <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a></span>
+      <span class="footer-sep" aria-hidden="true">·</span>
+      <span>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> · <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap</a></span>
+      <span class="footer-spacer"></span>
+      <span class="footer-version">v0.1 · maquette interactive</span>
+    </footer>
+  </div>
+
+  <!-- ============ DIALOGUES ============ -->
+  <dialog class="modal" id="folder-dialog" aria-labelledby="folder-dialog-title">
+    <div class="modal__card modal__card--sm">
+      <header class="modal__header">
+        <div>
+          <p class="eyebrow">Ouvrir un dossier</p>
+          <h2 id="folder-dialog-title">Choisir un dossier de photos</h2>
+        </div>
+        <button class="icon-button modal__close" type="button" data-close-dialog aria-label="Fermer">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </header>
+      <div class="folder-picker">
+        <div class="folder-path" id="folder-dialog-path"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-folder"></use></svg> <span>D:\Photos</span></div>
+        <button class="folder-row is-selected" type="button" aria-pressed="true">
+          <span class="folder-row__icon"><svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg></span>
+          <span class="folder-row__name"><span id="folder-dialog-name">démo-photos</span><small id="folder-dialog-meta">110 photos · 96 géolocalisées</small></span>
+          <svg class="icon folder-row__check" aria-hidden="true"><use href="#i-check-circle"></use></svg>
+        </button>
+        <p class="folder-hint"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-info"></use></svg> Maquette : seul le dossier de démonstration est disponible. L’application Windows ouvrira le sélecteur natif.</p>
+      </div>
+      <footer class="modal__footer">
+        <button class="btn btn--ghost" type="button" data-close-dialog>Annuler</button>
+        <button class="btn btn--primary" type="button" data-action="start-scan">
+          <svg class="icon" aria-hidden="true"><use href="#i-arrow"></use></svg>
+          Analyser ce dossier
+        </button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="rename-dialog" aria-labelledby="rename-dialog-title">
+    <div class="modal__card">
+      <header class="modal__header">
+        <div>
+          <p class="eyebrow">Dernière vérification</p>
+          <h2 id="rename-dialog-title">Renommer <span id="rename-dialog-count">96</span> photos ?</h2>
+          <p class="modal__subtitle">Un suffixe sera ajouté au nom de chaque fichier. Les images ne sont ni copiées ni modifiées.</p>
+        </div>
+        <button class="icon-button modal__close" type="button" data-close-dialog aria-label="Annuler">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </header>
+
+      <div class="rename-summary">
+        <div><strong id="rename-summary-files">96</strong><span>fichiers prêts</span></div>
+        <div><strong id="rename-summary-cities">8</strong><span>communes</span></div>
+        <div><strong id="rename-summary-ignored">14</strong><span>ignorées</span></div>
+      </div>
+
+      <ul class="rename-checks" id="rename-checks">
+        <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Aucun conflit de nom détecté</li>
+        <li><svg class="icon icon--sm" aria-hidden="true"><use href="#i-check-circle"></use></svg> Aucun nom ne dépasse la longueur autorisée</li>
+        <li class="is-warning"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert"></use></svg> <span id="rename-ignored-text">14 photos sans ville resteront intactes</span></li>
+      </ul>
+
+      <div class="rename-examples">
+        <div class="rename-examples__head"><h3>Exemples</h3><span>avant <svg class="icon icon--xs" aria-hidden="true"><use href="#i-arrow"></use></svg> après</span></div>
+        <div id="rename-example-list"></div>
+      </div>
+
+      <p class="modal__note"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-info"></use></svg> Les fichiers sont renommés dans leur dossier d’origine, sans déplacement. Un journal d’annulation est conservé pendant la session.</p>
+
+      <footer class="modal__footer">
+        <button class="btn btn--ghost" type="button" data-close-dialog>Annuler</button>
+        <button class="btn btn--primary" type="button" id="confirm-rename">
+          <svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>
+          <span id="confirm-rename-label">Renommer 96 photos</span>
+        </button>
+      </footer>
+
+      <div class="rename-progress" id="rename-progress" hidden>
+        <div class="rename-progress__head"><span>Renommage en cours…</span><strong id="rename-progress-count">0 / 96</strong></div>
+        <div class="progress-bar"><span id="rename-progress-bar"></span></div>
+        <p>Ne fermez pas l’application.</p>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="modal modal--detail" id="detail-dialog" aria-labelledby="detail-title">
+    <div class="modal__card modal__card--wide">
+      <button class="icon-button modal__close modal__close--float" type="button" data-close-dialog aria-label="Fermer la fiche">
+        <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+      </button>
+      <div class="detail">
+        <div class="detail__visual">
+          <img id="detail-image" src="" alt="">
+          <span class="detail__badge" id="detail-status-badge">GPS</span>
+        </div>
+        <div class="detail__content">
+          <p class="eyebrow" id="detail-eyebrow">Photo géolocalisée</p>
+          <h2 id="detail-title">Nom du fichier</h2>
+          <p class="detail__sub" id="detail-sub">Commune détectée · France</p>
+
+          <label class="field-label" for="detail-city">Commune</label>
+          <div class="city-editor city-editor--large">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-pin"></use></svg>
+            <input id="detail-city" type="text" autocomplete="off" spellcheck="false" placeholder="Saisir une ville">
+            <button class="city-reset" id="detail-city-reset" type="button" aria-label="Rétablir la ville d’origine" title="Rétablir la ville d’origine" hidden>
+              <svg class="icon icon--xs" aria-hidden="true"><use href="#i-undo"></use></svg>
+            </button>
+          </div>
+          <p class="detail__hint" id="detail-city-hint">Ville détectée par Photon. Modifiez-la si une commune voisine vous semble plus juste.</p>
+          <div class="detail__existing" id="detail-existing" hidden>
+            <span class="detail__existing-label"><svg class="icon icon--xs" aria-hidden="true"><use href="#i-pin"></use></svg> Nom déjà présent dans le fichier</span>
+            <button class="photon-suggestion photon-suggestion--detail" type="button" id="detail-use-photon">
+              <svg class="icon icon--xs" aria-hidden="true"><use href="#i-spark"></use></svg>
+              Utiliser <strong id="detail-photon-city"></strong> (ville détectée)
+            </button>
+            <span class="detail__existing-confirm" id="detail-photon-confirm"></span>
+          </div>
+
+          <label class="field-label" for="detail-text">Texte additionnel <span class="optional-label">optionnel</span></label>
+          <div class="text-editor text-editor--large">
+            <svg class="icon" aria-hidden="true"><use href="#i-pencil"></use></svg>
+            <input id="detail-text" type="text" placeholder="Ex. anniversaire, vue du château…" autocomplete="off" spellcheck="false">
+            <button class="text-reset" id="detail-text-reset" type="button" aria-label="Effacer le texte additionnel" title="Effacer le texte additionnel" hidden>
+              <svg class="icon icon--xs" aria-hidden="true"><use href="#i-x"></use></svg>
+            </button>
+          </div>
+
+          <div class="detail__grid">
+            <div><span>Coordonnées</span><strong id="detail-coords">—</strong></div>
+            <div><span>Prise de vue</span><strong id="detail-date">—</strong></div>
+            <div><span>Appareil</span><strong id="detail-device">—</strong></div>
+            <div><span>Dimensions</span><strong id="detail-dimensions">—</strong></div>
+            <div><span>Pays / région</span><strong id="detail-region">—</strong></div>
+            <div><span>Commune détectée</span><strong id="detail-detected">—</strong></div>
+          </div>
+
+          <div class="detail__newname"><span>Nouveau nom</span><code id="detail-newname">—</code></div>
+
+          <div class="detail__actions">
+            <a class="btn btn--ghost btn--compact" id="detail-osm-link" href="#" target="_blank" rel="noopener noreferrer">
+              <svg class="icon" aria-hidden="true"><use href="#i-map"></use></svg>
+              OpenStreetMap
+            </a>
+            <button class="btn btn--ghost btn--compact" id="detail-map-button" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-crosshair"></use></svg>
+              Centrer sur la carte
+            </button>
+          </div>
+          <p class="detail__missing-note" id="detail-missing-note" hidden><svg class="icon icon--sm" aria-hidden="true"><use href="#i-alert"></use></svg> Aucune coordonnée GPS détectée. Saisissez une commune pour inclure cette photo.</p>
+
+          <footer class="detail__footer">
+            <label class="detail__select">
+              <input type="checkbox" id="detail-selected">
+              <span class="check-box" aria-hidden="true"><svg class="icon"><use href="#i-check"></use></svg></span>
+              <span>Inclure dans le renommage</span>
+            </label>
+            <button class="btn btn--primary btn--compact" type="button" data-close-dialog>Terminé</button>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="about-dialog" aria-labelledby="about-title">
+    <div class="modal__card modal__card--sm">
+      <header class="modal__header">
+        <div>
+          <p class="eyebrow">À propos</p>
+          <h2 id="about-title">CityFinder <span class="version-badge">v0.1 · maquette</span></h2>
+        </div>
+        <button class="icon-button modal__close" type="button" data-close-dialog aria-label="Fermer">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
+      </header>
+      <div class="about">
+        <p><strong>Vos photos restent sur cet appareil.</strong> CityFinder lit les coordonnées GPS, interroge Photon pour trouver la commune et renomme les fichiers localement. Aucune image n’est envoyée.</p>
+        <p>La carte charge des tuiles vectorielles OpenFreeMap, issues d’OpenStreetMap : l’adresse IP et la zone consultée sont visibles par le service de tuiles, jamais les photos. La carte peut être masquée à tout moment.</p>
+        <ul class="about__list">
+          <li><span>Géocodage</span><a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a></li>
+          <li><span>Données cartographiques</span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors · ODbL</a></li>
+          <li><span>Fond de carte</span><a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer">OpenFreeMap · OpenMapTiles</a></li>
+          <li><span>Rendu vectoriel</span><a href="https://maplibre.org/" target="_blank" rel="noopener noreferrer">MapLibre GL JS · BSD-3</a></li>
+          <li><span>Moteur de carte</span><a href="https://leafletjs.com/" target="_blank" rel="noopener noreferrer">Leaflet · BSD-2</a></li>
+          <li><span>Clusters</span><a href="https://github.com/Leaflet/Leaflet.markercluster" target="_blank" rel="noopener noreferrer">Leaflet.markercluster · MIT</a></li>
+          <li><span>Icônes</span><span>Lucide · ISC</span></li>
+        </ul>
+        <p class="about__fine">Maquette HTML interactive de démonstration — les photos sont des illustrations de remplacement, aucune donnée personnelle n’est incluse.</p>
+      </div>
+      <footer class="modal__footer">
+        <button class="btn btn--primary" type="button" data-close-dialog>Fermer</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <div class="toast-region" id="toast-region" role="status" aria-live="polite"></div>
+  <p class="sr-only" id="live-region" aria-live="polite"></p>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
+  <script src="vendor/maplibre/maplibre-gl.js"></script>
+  <script src="vendor/maplibre/leaflet-maplibre-gl.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
