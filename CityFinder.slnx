@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CityFinder.App/CityFinder.App.csproj" />
+    <Project Path="src/CityFinder.Core/CityFinder.Core.csproj" />
+    <Project Path="src/CityFinder.Infrastructure/CityFinder.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CityFinder.Core.Tests/CityFinder.Core.Tests.csproj" />
+    <Project Path="tests/CityFinder.Infrastructure.Tests/CityFinder.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

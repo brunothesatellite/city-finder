@@ -1,0 +1,923 @@
+﻿<Window x:Class="CityFinder.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:CityFinder.App.ViewModels"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        Title="CityFinder"
+        Width="1480" Height="920"
+        MinWidth="1180" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="{DynamicResource AppBg}"
+        Foreground="{DynamicResource Ink}"
+        FontFamily="{DynamicResource UiFont}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        AllowDrop="True"
+        DragOver="Window_DragOver"
+        Drop="Window_Drop"
+        Closing="Window_Closing"
+        StateChanged="Window_StateChanged">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="64"
+                            ResizeBorderThickness="6"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False"
+                            CornerRadius="0"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.InputBindings>
+        <KeyBinding Key="O" Modifiers="Control" Command="{Binding OpenFolderCommand}"/>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+    </Window.InputBindings>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ==================== Title bar ==================== -->
+        <Border Grid.Row="0" Background="{DynamicResource AppBg}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+            <Grid Margin="22,0,14,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="34" Height="34" CornerRadius="10" Background="{DynamicResource Accent}">
+                        <Path Data="M12 2C8 2 5 5 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-4-3-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"
+                              Fill="{DynamicResource AccentInk}" Stretch="Uniform" Width="17" Height="17"/>
+                    </Border>
+                    <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="CityFinder" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="La commune dans le nom" FontSize="10"
+                                   Foreground="{DynamicResource InkMuted}" Margin="0,1,0,0"/>
+                    </StackPanel>
+
+                    <Button Margin="26,0,0,0" Style="{StaticResource PillButton}"
+                            Command="{Binding OpenFolderCommand}"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                            Visibility="{Binding HasFolder, Converter={StaticResource BoolToVisibility}}"
+                            ToolTip="Changer de dossier" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11z"
+                                  Stroke="{DynamicResource InkMuted}" StrokeThickness="1.6"
+                                  Fill="Transparent" Stretch="Uniform" Width="14" Height="14"
+                                  VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding FolderName}" FontSize="11.5" FontWeight="SemiBold"
+                                       Margin="7,0,0,0" MaxWidth="210" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+                            <Border Background="{DynamicResource Surface}" CornerRadius="6"
+                                    Padding="6,1" Margin="9,0,0,0">
+                                <TextBlock Text="{Binding TotalCount}" FontSize="10"
+                                           Foreground="{DynamicResource InkMuted}"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource GhostButton}" Command="{Binding ToggleMapCommand}"
+                            ToolTip="Afficher ou masquer la carte" Padding="10,7"
+                            AutomationProperties.Name="Afficher ou masquer la carte"
+                            Visibility="{Binding HasFolder, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z M9 3v15 M15 6v15"
+                                  Stroke="{DynamicResource Ink}" StrokeThickness="1.5" Fill="Transparent"
+                                  Stretch="Uniform" Width="15" Height="15" VerticalAlignment="Center"/>
+                            <TextBlock Text="Carte" FontSize="12" Margin="7,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource IconButton}" Command="{Binding ToggleThemeCommand}"
+                            ToolTip="Changer de thème" AutomationProperties.Name="Changer de thème"
+                            Margin="4,0,0,0">
+                        <TextBlock Text="{Binding ThemeIcon}" FontSize="17" FontFamily="Segoe UI Symbol"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </Button>
+                    <Border Width="1" Height="22" Background="{DynamicResource Border}" Margin="10,0"/>
+                    <Button Style="{StaticResource WindowButton}" Click="Minimize_Click" ToolTip="Réduire"
+                            AutomationProperties.Name="Réduire">
+                        <TextBlock Text="—" FontSize="12"/>
+                    </Button>
+                    <Button Style="{StaticResource WindowButton}" Click="MaximizeRestore_Click"
+                            ToolTip="Agrandir" AutomationProperties.Name="Agrandir">
+                        <TextBlock x:Name="MaximizeGlyph" Text="□" FontSize="13"/>
+                    </Button>
+                    <Button Style="{StaticResource CloseWindowButton}" Click="Close_Click" ToolTip="Fermer"
+                            AutomationProperties.Name="Fermer">
+                        <TextBlock Text="✕" FontSize="12"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ==================== Resume banner ==================== -->
+        <Border Grid.Row="1" Background="{DynamicResource AccentSoft}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                Padding="24,9"
+                Visibility="{Binding ShowResumeBanner, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Path Data="M5 12l4 4L19 6" Stroke="{DynamicResource Accent}" StrokeThickness="2"
+                          Fill="Transparent" Stretch="Uniform" Width="15" Height="15"
+                          VerticalAlignment="Center"/>
+                    <TextBlock Text="Reprise de session" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Accent}" Margin="8,0,10,0"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ResumeSummary}" FontSize="11.5"
+                               Foreground="{DynamicResource InkMuted}" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Content="Annuler les renommages" Style="{StaticResource LinkButton}"
+                        Command="{Binding UndoAllCommand}" HorizontalAlignment="Right"
+                        VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- ==================== Main content ==================== -->
+        <Grid Grid.Row="2">
+
+            <!-- Welcome -->
+            <ScrollViewer Visibility="{Binding ShowWelcome, Converter={StaticResource BoolToVisibility}}"
+                          VerticalScrollBarVisibility="Auto">
+                <Grid Margin="64,34,64,48" MaxWidth="1420" HorizontalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.04*"/>
+                        <ColumnDefinition Width="0.96*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" MaxWidth="650"
+                                HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}"
+                                     VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="GÉOLOCALISATION · RENOMMAGE" FontSize="10"
+                                       FontWeight="SemiBold" Foreground="{DynamicResource InkMuted}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="La ville de vos photos, dans leur nom."
+                                   FontFamily="{DynamicResource DisplayFont}" FontSize="56"
+                                   LineHeight="60" TextWrapping="Wrap" Margin="0,18,0,0"
+                                   MaxWidth="620"/>
+
+                        <TextBlock Text="CityFinder lit les coordonnées GPS de vos photos, retrouve la commune, puis ajoute son nom au fichier. Vous vérifiez tout sur la carte avant de renommer."
+                                   FontSize="15.5" LineHeight="25" Foreground="{DynamicResource InkMuted}"
+                                   TextWrapping="Wrap" MaxWidth="570" HorizontalAlignment="Left"
+                                   Margin="0,20,0,0"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,30,0,0">
+                            <Button Style="{StaticResource PrimaryButton}" Command="{Binding OpenFolderCommand}"
+                                    Padding="21,13" FontSize="14">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11z"
+                                          Stroke="{DynamicResource AccentInk}" StrokeThickness="1.7"
+                                          Fill="Transparent" Stretch="Uniform" Width="17" Height="17"
+                                          VerticalAlignment="Center"/>
+                                    <TextBlock Text="Choisir un dossier" Margin="9,0,0,0"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button Style="{StaticResource SecondaryButton}" Command="{Binding ResumeLastCommand}"
+                                    Padding="18,13" FontSize="13" Margin="12,0,0,0"
+                                    Visibility="{Binding CanResumeLast, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="M9 7 4 12l5 5M4 12h9a6 6 0 0 1 6 6"
+                                          Stroke="{DynamicResource Ink}" StrokeThickness="1.7"
+                                          Fill="Transparent" Stretch="Uniform" Width="16" Height="16"
+                                          VerticalAlignment="Center"/>
+                                    <TextBlock Text="Reprendre" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <TextBlock FontSize="11" Foreground="{DynamicResource InkMuted}" Margin="2,9,0,0"
+                                   TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding CanResumeLast, Converter={StaticResource BoolToVisibility}}">
+                            <Run Text="Dernier dossier : "/><Run Text="{Binding RecentFolderLabel, Mode=OneWay}"/>
+                        </TextBlock>
+
+                        <Grid Margin="0,38,0,0" MaxWidth="620" HorizontalAlignment="Left">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,0,16,0">
+                                <Border Width="26" Height="26" CornerRadius="13"
+                                        Background="{DynamicResource AccentSoft}" VerticalAlignment="Top">
+                                    <TextBlock Text="1" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Accent}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Margin="9,2,0,0">
+                                    <TextBlock Text="Choisissez un dossier" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="JPEG, PNG, TIFF, WebP, HEIC" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,16,0">
+                                <Border Width="26" Height="26" CornerRadius="13"
+                                        Background="{DynamicResource AccentSoft}" VerticalAlignment="Top">
+                                    <TextBlock Text="2" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Accent}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Margin="9,2,0,0">
+                                    <TextBlock Text="Vérifiez les villes" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Carte, Photon, texte libre" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Border Width="26" Height="26" CornerRadius="13"
+                                        Background="{DynamicResource AccentSoft}" VerticalAlignment="Top">
+                                    <TextBlock Text="3" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Accent}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Margin="9,2,0,0">
+                                    <TextBlock Text="Renommez en un clic" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Annulable à tout moment" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
+                                BorderThickness="1" CornerRadius="12" Padding="14,12" Margin="0,32,0,0"
+                                MaxWidth="620" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M7 10V8a5 5 0 0 1 10 0v2 M5 10h14v10H5V10z"
+                                      Stroke="{DynamicResource InkMuted}" StrokeThickness="1.6"
+                                      Fill="Transparent" Stretch="Uniform" Width="16" Height="16"
+                                      VerticalAlignment="Top" Margin="0,1,10,0"/>
+                                <TextBlock FontSize="11.5" LineHeight="18" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource InkMuted}">
+                                    Vos photos restent sur cet ordinateur. Seules les coordonnées arrondies sont envoyées à Photon pour retrouver la commune. Aucun fichier n'est renommé sans votre confirmation.
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Decorative collage (generic demo labels, no personal data) -->
+                    <Grid Grid.Column="1" Width="560" Height="470" HorizontalAlignment="Center"
+                          VerticalAlignment="Center" IsHitTestVisible="False" Margin="20,0,0,0">
+                        <Border Width="222" Height="292" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="18"
+                                HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,64,0,0"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <RotateTransform Angle="-9"/>
+                            </Border.RenderTransform>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Border CornerRadius="16" Margin="10" ClipToBounds="True">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#F2C99A" Offset="0"/>
+                                            <GradientStop Color="#D9A45E" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Grid>
+                                        <Ellipse Width="56" Height="56" Fill="#FFF4D6" Opacity="0.85"
+                                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,22,22,0"/>
+                                        <Path Data="M0 150 L55 88 L110 138 L160 72 L230 150 L230 210 L0 210 Z"
+                                              Fill="#8E5B2E" Opacity="0.55"/>
+                                        <Path Data="M0 185 L65 130 L130 176 L200 108 L270 178 L270 220 L0 220 Z"
+                                              Fill="#5C3A1C" Opacity="0.65"/>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Row="1" Margin="17,2,17,16">
+                                    <TextBlock Text="Lyon" FontFamily="{DynamicResource DisplayFont}" FontSize="21"/>
+                                    <TextBlock Text="Ville déjà dans le nom" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Width="228" Height="300" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="18"
+                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,10,4,0"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <RotateTransform Angle="8"/>
+                            </Border.RenderTransform>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Border CornerRadius="16" Margin="10" ClipToBounds="True">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#BFD9D2" Offset="0"/>
+                                            <GradientStop Color="#6E9E91" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Grid>
+                                        <Ellipse Width="46" Height="46" Fill="#F7FBEF" Opacity="0.8"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,24,0,0"/>
+                                        <Path Data="M0 160 L70 96 L145 152 L205 94 L280 162 L280 230 L0 230 Z"
+                                              Fill="#315B4C" Opacity="0.55"/>
+                                        <Path Data="M0 195 L85 142 L165 190 L245 132 L300 172 L300 240 L0 240 Z"
+                                              Fill="#173C31" Opacity="0.7"/>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Row="1" Margin="17,2,17,17">
+                                    <TextBlock Text="Paris" FontFamily="{DynamicResource DisplayFont}" FontSize="21"/>
+                                    <TextBlock Text="8 communes · 96 photos" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Width="300" Height="378" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="20"
+                                HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,28,0,0"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="28" ShadowDepth="8" Direction="270"
+                                                  Color="#33000000" Opacity="0.4"/>
+                            </Border.Effect>
+                            <Border.RenderTransform>
+                                <RotateTransform Angle="-1.5"/>
+                            </Border.RenderTransform>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Border CornerRadius="18" Margin="11" ClipToBounds="True">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#B8DCE8" Offset="0"/>
+                                            <GradientStop Color="#E8D9B8" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Grid>
+                                        <Ellipse Width="74" Height="74" Fill="#FFF3CD" Opacity="0.95"
+                                                 HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,28,28,0"/>
+                                        <Path Data="M0 190 L70 126 L145 178 L215 112 L300 184 L300 250 L0 250 Z"
+                                              Fill="#5D8E7A" Opacity="0.55"/>
+                                        <Path Data="M0 225 L95 168 L180 218 L265 156 L330 205 L330 280 L0 280 Z"
+                                              Fill="#2E5D46" Opacity="0.8"/>
+                                        <Border Background="#D9FFFDF8" CornerRadius="8" Padding="8,4"
+                                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="18,18,0,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path Data="M12 2C8 2 5 5 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-4-3-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"
+                                                      Fill="{DynamicResource Accent}" Stretch="Uniform"
+                                                      Width="11" Height="11" VerticalAlignment="Center"/>
+                                                <TextBlock Text="96 GPS" FontSize="9.5" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource Accent}" Margin="5,0,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Row="1" Margin="19,2,19,18">
+                                    <TextBlock Text="Annecy" FontFamily="{DynamicResource DisplayFont}" FontSize="23"/>
+                                    <TextBlock Text="12 photos · été 2025" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}" Margin="0,4,0,0"/>
+                                    <Border Background="{DynamicResource AccentSoft}" CornerRadius="8"
+                                            Padding="8,5" Margin="0,11,0,0" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Photon propose : " FontSize="10"
+                                                       Foreground="{DynamicResource InkMuted}"/>
+                                            <TextBlock Text="Annecy" FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Accent}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
+                                BorderThickness="1" CornerRadius="11" Padding="12,7"
+                                HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="0,0,0,2">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z"
+                                      Stroke="{DynamicResource Accent}" StrokeThickness="1.6"
+                                      Fill="Transparent" Stretch="Uniform" Width="13" Height="13"
+                                      VerticalAlignment="Center"/>
+                                <TextBlock Text="8 communes" FontSize="10.5" FontWeight="SemiBold"
+                                           Margin="6,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{DynamicResource Surface}" CornerRadius="11" Padding="12,7"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,6,0"
+                                BorderBrush="{DynamicResource Border}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="110" FontSize="11" FontWeight="Bold"
+                                           Foreground="{DynamicResource Accent}"/>
+                                <TextBlock Text=" photos analysées" FontSize="10.5" Margin="4,0,0,0"
+                                           Foreground="{DynamicResource InkMuted}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- Results -->
+            <Grid Visibility="{Binding ShowResults, Converter={StaticResource BoolToVisibility}}"
+                  Margin="24,18,24,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="{Binding IsMapVisible, Converter={StaticResource MapWidth}}"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0" Margin="0,0,18,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Margin="2,0,2,12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="ANALYSE TERMINÉE" FontSize="9.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Accent}"/>
+                            <TextBlock Text="  ·  " FontSize="9.5" Foreground="{DynamicResource InkMuted}"/>
+                            <TextBlock Text="{Binding FolderName}" FontSize="9.5"
+                                       Foreground="{DynamicResource InkMuted}"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding HeaderTitle}" FontFamily="{DynamicResource DisplayFont}"
+                                   FontSize="30" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="Vérifiez la ville, ajoutez un texte si besoin, puis renommez. Rien n'est modifié sans votre confirmation."
+                                   FontSize="12" Foreground="{DynamicResource InkMuted}" Margin="0,4,0,0"/>
+                        <WrapPanel Margin="0,11,0,0">
+                            <Border Style="{StaticResource Chip}" Margin="0,0,7,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding TotalCount}" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock Text=" fichiers" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Chip}" Margin="0,0,7,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding LocatedCount}" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Accent}"/>
+                                    <TextBlock Text=" avec GPS" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Chip}" Margin="0,0,7,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding MissingCount}" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Warning}"/>
+                                    <TextBlock Text=" sans GPS" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Chip}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding RenamedCount}" FontSize="11" FontWeight="SemiBold"/>
+                                    <TextBlock Text=" déjà renommées" FontSize="10.5"
+                                               Foreground="{DynamicResource InkMuted}"/>
+                                </StackPanel>
+                            </Border>
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <WrapPanel Grid.Row="1" Margin="0,0,0,8">
+                        <Border Width="270" Height="38" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="10"
+                                Margin="2,0,8,6" VerticalAlignment="Center">
+                            <Grid Margin="11,0,7,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Path Data="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM15.2 15.2 21 21"
+                                      Stroke="{DynamicResource InkMuted}" StrokeThickness="1.7"
+                                      Fill="Transparent" Stretch="Uniform" Width="15" Height="15"
+                                      VerticalAlignment="Center"/>
+                                <Grid Grid.Column="1" Margin="8,0,4,0">
+                                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource SearchTextBox}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Rechercher un fichier, une ville…" FontSize="12"
+                                               Foreground="{DynamicResource InkMuted}" VerticalAlignment="Center"
+                                               IsHitTestVisible="False"
+                                               Visibility="{Binding SearchText, Converter={StaticResource EmptyStringToVisibility}}"/>
+                                </Grid>
+                                <Button Grid.Column="2" Style="{StaticResource SmallIconButton}" Content="×"
+                                        FontSize="15" Command="{Binding ClearSearchCommand}"
+                                        ToolTip="Effacer la recherche"
+                                        AutomationProperties.Name="Effacer la recherche"
+                                        Visibility="{Binding SearchText, Converter={StaticResource NonEmptyStringToVisibility}}"/>
+                            </Grid>
+                        </Border>
+
+                        <ListBox ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"
+                                 Style="{StaticResource FilterListBox}" ItemContainerStyle="{StaticResource FilterItem}"
+                                 Margin="0,0,6,6" VerticalAlignment="Center">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Button Style="{StaticResource IconButton}" Command="{Binding RefreshCommand}"
+                                ToolTip="Actualiser (F5)" AutomationProperties.Name="Actualiser"
+                                Margin="2,0,2,6">
+                            <Path Data="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"
+                                  Stroke="{DynamicResource Ink}" StrokeThickness="1.7" Fill="Transparent"
+                                  Stretch="Uniform" Width="16" Height="16"/>
+                        </Button>
+                    </WrapPanel>
+
+                    <Border Grid.Row="2" Background="{DynamicResource AccentSoft}" CornerRadius="10"
+                            Padding="11,7" Margin="2,0,2,8"
+                            Visibility="{Binding IsGeocoding, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <Path x:Name="GeocodeSpinner" Style="{StaticResource SpinnerPath}"
+                                      Data="M12 3a9 9 0 1 1-6.4 2.7" Stroke="{DynamicResource Accent}"
+                                      StrokeThickness="2" Fill="Transparent" Stretch="Uniform"
+                                      Width="14" Height="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding GeocodeStatusText}" FontSize="11"
+                                           Foreground="{DynamicResource Accent}" FontWeight="SemiBold"
+                                           Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="La grille reste utilisable pendant la recherche." FontSize="10.5"
+                                       Foreground="{DynamicResource InkMuted}" HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="3">
+                        <ListBox x:Name="PhotoList"
+                                 ItemsSource="{Binding PhotosView}"
+                                 SelectedItem="{Binding SelectedPhoto, Mode=TwoWay}"
+                                 Style="{StaticResource PhotoListBox}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:PhotoViewModel}">
+                                    <Border Style="{StaticResource PhotoCard}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="150"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <Border Grid.Row="0" CornerRadius="15,15,0,0" ClipToBounds="True"
+                                                    Background="{DynamicResource MapBg}">
+                                                <Grid>
+                                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                                                    <Border Background="{DynamicResource MapBg}"
+                                                            Visibility="{Binding HasThumbnail, Converter={StaticResource InverseBoolToVisibility}}">
+                                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                            <Path Data="M4 8h3l1.5-2h7L17 8h3v11H4V8z M12 10.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"
+                                                                  Stroke="{DynamicResource InkMuted}" StrokeThickness="1.4"
+                                                                  Fill="Transparent" Stretch="Uniform" Width="25" Height="25"
+                                                                  HorizontalAlignment="Center"/>
+                                                            <TextBlock Text="Aperçu indisponible" FontSize="9.5"
+                                                                       Foreground="{DynamicResource InkMuted}" Margin="0,6,0,0"
+                                                                       HorizontalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <Border Background="{DynamicResource Surface}" Opacity="0.92"
+                                                            CornerRadius="8" Padding="4" Margin="10"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Top">
+                                                        <CheckBox Style="{StaticResource CardCheckBox}"
+                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                  IsEnabled="{Binding IsSelectionEnabled}"
+                                                                  ToolTip="Inclure cette photo dans le renommage"
+                                                                  AutomationProperties.Name="Inclure cette photo"/>
+                                                    </Border>
+                                                    <Border Style="{StaticResource StatusPill}"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                            Margin="0,10,10,0">
+                                                        <TextBlock Text="{Binding StatusText}"
+                                                                   Style="{StaticResource StatusText}"/>
+                                                    </Border>
+                                                    <Border Background="{DynamicResource Surface}" Opacity="0.9"
+                                                            CornerRadius="7" Padding="6,3" Margin="10"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                            Visibility="{Binding HasGps, Converter={StaticResource BoolToVisibility}}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Path Data="M12 2C8 2 5 5 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-4-3-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"
+                                                                  Fill="{DynamicResource Accent}" Stretch="Uniform"
+                                                                  Width="9" Height="9" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding CoordinateLabel}" FontSize="9"
+                                                                       Foreground="{DynamicResource InkMuted}"
+                                                                       Margin="4,0,0,0"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+
+                                            <StackPanel Grid.Row="1" Margin="14,11,14,13">
+                                                <TextBlock Text="{Binding FileName}" FontSize="12.5" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding FileName}"/>
+
+                                                <Grid Margin="0,9,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Path Data="M12 2C8 2 5 5 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-4-3-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"
+                                                          Fill="{DynamicResource Accent}" Stretch="Uniform"
+                                                          Width="13" Height="13" VerticalAlignment="Center"
+                                                          Margin="2,0,7,0"/>
+                                                    <Grid Grid.Column="1">
+                                                        <TextBox Text="{Binding City, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Style="{StaticResource CityTextBox}"
+                                                                 LostFocus="CityBox_LostFocus"
+                                                                 ToolTip="Ville ajoutée au nom du fichier"/>
+                                                        <TextBlock Text="Ville" FontSize="12"
+                                                                   Foreground="{DynamicResource InkMuted}"
+                                                                   Margin="10,0,0,0" VerticalAlignment="Center"
+                                                                   IsHitTestVisible="False"
+                                                                   Visibility="{Binding City, Converter={StaticResource EmptyStringToVisibility}}"/>
+                                                    </Grid>
+                                                </Grid>
+
+                                                <Border Background="{DynamicResource AccentSoft}" CornerRadius="8"
+                                                        Padding="8,6" Margin="0,6,0,0"
+                                                        Visibility="{Binding HasCitySuggestion, Converter={StaticResource BoolToVisibility}}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock FontSize="10" Foreground="{DynamicResource InkMuted}"
+                                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                                                            <Run Text="Photon propose : "/><Run Text="{Binding SuggestionCity, Mode=OneWay}" FontWeight="SemiBold" Foreground="{DynamicResource Accent}"/>
+                                                        </TextBlock>
+                                                        <Button Grid.Column="1" Content="Utiliser"
+                                                                Style="{StaticResource LinkButton}"
+                                                                Command="{Binding UseSuggestionCommand}"
+                                                                Margin="8,0,0,0"/>
+                                                    </Grid>
+                                                </Border>
+
+                                                <StackPanel Orientation="Horizontal" Margin="2,6,0,0"
+                                                            Visibility="{Binding HasExistingCity, Converter={StaticResource BoolToVisibility}}">
+                                                    <Path Data="M5 12l4 4L19 6" Stroke="{DynamicResource InkMuted}"
+                                                          StrokeThickness="1.7" Fill="Transparent"
+                                                          Stretch="Uniform" Width="11" Height="11"
+                                                          VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                                    <TextBlock Text="{Binding ExistingCityText}" FontSize="9.5"
+                                                               Foreground="{DynamicResource InkMuted}"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+
+                                                <Grid Margin="0,7,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                                             Style="{StaticResource FieldTextBox}" FontSize="11.5"
+                                                             MinHeight="33" Padding="9,6"
+                                                             LostFocus="Textbox_LostFocus"
+                                                             ToolTip="Texte optionnel ajouté après la ville"/>
+                                                    <TextBlock Text="Texte additionnel (optionnel)" FontSize="11"
+                                                               Foreground="{DynamicResource InkMuted}"
+                                                               Margin="10,0,0,0" VerticalAlignment="Center"
+                                                               IsHitTestVisible="False"
+                                                               Visibility="{Binding Text, Converter={StaticResource EmptyStringToVisibility}}"/>
+                                                    <Button Grid.Column="1" Style="{StaticResource SmallIconButton}"
+                                                            Content="×" FontSize="13"
+                                                            Command="{Binding ClearTextCommand}"
+                                                            ToolTip="Effacer le texte"
+                                                            AutomationProperties.Name="Effacer le texte"
+                                                            Visibility="{Binding HasText, Converter={StaticResource BoolToVisibility}}"/>
+                                                </Grid>
+
+                                                <TextBlock Text="{Binding TargetNamePreview}" FontSize="9.5"
+                                                           Margin="2,8,0,0"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding TargetNamePreview}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource InkMuted}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasCity}" Value="False">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Warning}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
+                                BorderThickness="1" CornerRadius="16" Padding="34"
+                                Visibility="{Binding ShowEmptyResults, Converter={StaticResource BoolToVisibility}}"
+                                VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="560">
+                            <StackPanel>
+                                <Border Width="46" Height="46" CornerRadius="13"
+                                        Background="{DynamicResource SurfaceAlt}" HorizontalAlignment="Center">
+                                    <Path Data="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-11z"
+                                          Stroke="{DynamicResource InkMuted}" StrokeThickness="1.5"
+                                          Fill="Transparent" Stretch="Uniform" Width="22" Height="22"/>
+                                </Border>
+                                <TextBlock Text="Aucune photo compatible" FontFamily="{DynamicResource DisplayFont}"
+                                           FontSize="23" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                                <TextBlock Text="Ce dossier ne contient aucun JPEG, PNG, TIFF, WebP ou HEIC lisible."
+                                           FontSize="12" Foreground="{DynamicResource InkMuted}"
+                                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,7,0,0"/>
+                                <Button Content="Choisir un autre dossier" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding OpenFolderCommand}" HorizontalAlignment="Center"
+                                        Margin="0,18,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
+                                BorderThickness="1" CornerRadius="16" Padding="34"
+                                Visibility="{Binding ShowNoMatches, Converter={StaticResource BoolToVisibility}}"
+                                VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520">
+                            <StackPanel>
+                                <TextBlock Text="Aucune photo ne correspond" FontFamily="{DynamicResource DisplayFont}"
+                                           FontSize="23" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Essayez un autre filtre ou effacez la recherche."
+                                           FontSize="12" Foreground="{DynamicResource InkMuted}"
+                                           TextAlignment="Center" Margin="0,7,0,0"/>
+                                <Button Content="Effacer la recherche" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding ClearSearchCommand}" HorizontalAlignment="Center"
+                                        Margin="0,16,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- Map panel -->
+                <Border Grid.Column="1" Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource Border}" BorderThickness="1,0,0,0"
+                        Visibility="{Binding IsMapVisible, Converter={StaticResource BoolToVisibility}}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="62"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="16,0">
+                            <Grid>
+                                <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z M9 3v15 M15 6v15"
+                                              Stroke="{DynamicResource Accent}" StrokeThickness="1.5"
+                                              Fill="Transparent" Stretch="Uniform" Width="14" Height="14"
+                                              VerticalAlignment="Center"/>
+                                        <TextBlock Text="Carte" FontSize="13" FontWeight="SemiBold"
+                                                   Margin="7,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock FontSize="10.5" Foreground="{DynamicResource InkMuted}"
+                                               Margin="0,2,0,0">
+                                        <Run Text="{Binding MapPointLabel, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding MapCityLabel, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <Button Style="{StaticResource IconButton}" Command="{Binding FitMapCommand}"
+                                            ToolTip="Recentrer sur toutes les photos"
+                                            AutomationProperties.Name="Recentrer la carte">
+                                        <Path Data="M4 9V4h5 M20 9V4h-5 M4 15v5h5 M20 15v5h-5"
+                                              Stroke="{DynamicResource Ink}" StrokeThickness="1.7"
+                                              Fill="Transparent" Stretch="Uniform" Width="15" Height="15"/>
+                                    </Button>
+                                    <Button Style="{StaticResource IconButton}" Command="{Binding ToggleMapCommand}"
+                                            ToolTip="Masquer la carte" AutomationProperties.Name="Masquer la carte"
+                                            Margin="2,0,0,0">
+                                        <TextBlock Text="✕" FontSize="12"/>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Grid Grid.Row="1" Background="{DynamicResource MapBg}">
+                            <wv2:WebView2 x:Name="MapView"
+                                          Visibility="{Binding IsMapReady, Converter={StaticResource BoolToVisibility}}"/>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Visibility="{Binding MapLoading, Converter={StaticResource BoolToVisibility}}">
+                                <Path Style="{StaticResource SpinnerPath}"
+                                      Data="M12 3a9 9 0 1 1-6.4 2.7" Stroke="{DynamicResource Accent}"
+                                      StrokeThickness="2.2" Fill="Transparent" Stretch="Uniform"
+                                      Width="24" Height="24" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Chargement de la carte…" FontSize="11.5"
+                                           Foreground="{DynamicResource InkMuted}" Margin="0,10,0,0"
+                                           HorizontalAlignment="Center"/>
+                            </StackPanel>
+                            <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
+                                    BorderThickness="1" CornerRadius="14" Padding="24" Margin="24"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding MapUnavailable, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="Carte indisponible" FontFamily="{DynamicResource DisplayFont}"
+                                               FontSize="21"/>
+                                    <TextBlock Text="{Binding MapErrorMessage}" FontSize="11.5"
+                                               Foreground="{DynamicResource InkMuted}" TextWrapping="Wrap"
+                                               Margin="0,8,0,0"/>
+                                    <TextBlock Text="La grille, la saisie des villes et le renommage restent entièrement fonctionnels."
+                                               FontSize="11" Foreground="{DynamicResource InkMuted}"
+                                               TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                    <TextBlock Margin="0,12,0,0" FontSize="11.5">
+                                        <Hyperlink NavigateUri="https://developer.microsoft.com/microsoft-edge/webview2/"
+                                                   RequestNavigate="WebView2Link_RequestNavigate">
+                                            Installer le runtime WebView2
+                                        </Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="2" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0"
+                                Padding="14,7">
+                            <TextBlock FontSize="9.5" Foreground="{DynamicResource InkMuted}"
+                                       Text="Fond © OpenStreetMap contributors · OpenFreeMap · OpenMapTiles"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Busy overlay, title bar stays accessible -->
+            <Grid Grid.Row="2" Background="{DynamicResource Overlay}" Panel.ZIndex="100"
+                  Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}">
+                <Border Width="430" Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="18"
+                        Padding="30" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="34" ShadowDepth="10" Direction="270"
+                                          Color="#40000000" Opacity="0.5"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="40" Height="40" CornerRadius="12"
+                                    Background="{DynamicResource AccentSoft}">
+                                <Path Style="{StaticResource SpinnerPath}"
+                                      Data="M12 3a9 9 0 1 1-6.4 2.7" Stroke="{DynamicResource Accent}"
+                                      StrokeThickness="2.2" Fill="Transparent" Stretch="Uniform"
+                                      Width="20" Height="20"/>
+                            </Border>
+                            <StackPanel Margin="13,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="Un instant…" FontSize="9.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Accent}"/>
+                                <TextBlock Text="{Binding BusyText}" FontFamily="{DynamicResource DisplayFont}"
+                                           FontSize="22" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock Text="{Binding BusySubtext}" FontSize="11"
+                                   Foreground="{DynamicResource InkMuted}" Margin="0,14,0,0"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <ProgressBar Style="{StaticResource SlimProgressBar}" Height="8"
+                                     Value="{Binding BusyProgress, Mode=OneWay}" Maximum="100" Margin="0,14,0,0"/>
+                        <TextBlock Text="Vos fichiers ne sont jamais renommés sans confirmation."
+                                   FontSize="10" Foreground="{DynamicResource InkMuted}" Margin="0,12,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- ==================== Footer ==================== -->
+        <Border Grid.Row="3" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="24,12"
+                Visibility="{Binding ShowResults, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}"
+                             VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding StatusMessage}" FontSize="11"
+                               Foreground="{DynamicResource InkMuted}" MaxWidth="780"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SelectionSummary}" FontSize="11.5"
+                               Foreground="{DynamicResource InkMuted}" VerticalAlignment="Center"
+                               Margin="0,0,14,0"/>
+                    <Button Content="{Binding RenameButtonText}" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding RenameCommand}" MinWidth="164"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

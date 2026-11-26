@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>CityFinder — carte</title>
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.css">
+    <link rel="stylesheet" href="vendor/leaflet-markercluster/MarkerCluster.Default.css">
+    <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
+    <link rel="stylesheet" href="map.css">
+</head>
+<body>
+    <div id="map" role="application" aria-label="Carte des photos géolocalisées"></div>
+
+    <div id="map-empty" class="map-overlay map-overlay--empty" hidden>
+        <strong>Aucune photo géolocalisée dans cette vue</strong>
+        <span>Modifiez le filtre ou la recherche.</span>
+    </div>
+
+    <div id="map-offline" class="map-overlay map-overlay--offline" hidden>
+        <strong>Fond de carte indisponible</strong>
+        <span>Les repères restent utilisables sur ce fond quadrillé.</span>
+    </div>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
+    <script src="vendor/maplibre/maplibre-gl.js"></script>
+    <script src="vendor/maplibre/leaflet-maplibre-gl.js"></script>
+    <script src="map.js"></script>
+</body>
+</html>

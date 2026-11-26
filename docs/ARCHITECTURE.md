@@ -1,81 +1,177 @@
-# CityFinder — architecture retenue
+# CityFinder — architecture
 
-## Décision
+## Décisions
 
-- **UI :** WPF/XAML complet + WPF-UI, MVVM. La maquette HTML est la référence de design, pas l'UI de production.
-- **Carte :** WebView2 hébergeant Leaflet + MapLibre + OpenFreeMap. C'est le seul composant web.
-- **Géocodage :** Photon via `HttpClient` C#, cache local, 1 requête/seconde.
-- **Session :** `.cityfinder.json` dans le dossier photo, avec repli dans `%LOCALAPPDATA%` si le dossier est en lecture seule.
-- **Conflits :** renommage automatique ` (2)`, ` (3)`… sans écrasement.
-- **Ville existante :** manifeste exact + parseur prudent (communes connues / ville Photon), pas de devinette.
-- **UI :** français, thème clair/sombre, clavier, WCAG AA.
-- **Cible :** Windows 10 22H2+ / Windows 11, .NET 10 LTS, `win-x64` autonome.
+| Sujet | Décision |
+|---|---|
+| Interface | **WPF/XAML natif**, styles XAML sur mesure, MVVM. Pas de WPF-UI pour garder la direction visuelle de la maquette. |
+| Carte | **WebView2** local hébergeant Leaflet + MapLibre + leaflet-maplibre-gl. Seul composant web de l'application. |
+| Runtime | **.NET 10 LTS**, cible `net10.0-windows`, publication `win-x64` autonome. |
+| Métadonnées | **MetadataExtractor** (EXIF/XMP), miniatures WPF/WIC. |
+| Géocodage | **Photon** via `HttpClient` C#, cache JSON local, limitation à ~1 requête/seconde. |
+| Ville existante | **Manifeste + parseur prudent** : une ville n'est reconnue que si elle figure dans la liste des communes connues ou dans les résultats Photon du dossier. Aucune devinette. |
+| Conflits | Numérotation automatique ` (2)`, ` (3)`…, aucun écrasement. |
+| Session | **`.cityfinder.json`** dans le dossier photo, écriture atomique, attribut caché, repli `%LOCALAPPDATA%` si le dossier est en lecture seule. |
+| Annulation | Restauration des noms d'origine enregistrés dans la session, par lot ou pour toute la session. |
+| Reprise | Les fichiers déjà renommés sont décochés et verrouillés ; ils ne sont **jamais** renommés à nouveau par défaut. |
+| Texte | Séparateur `" , "` entre la ville et le texte optionnel. |
+| Langue | Français, dates `fr-FR`, interface clavier. |
+| Distribution | Dossier autonome `win-x64` + archive ZIP ; runtime WebView2 système. |
+
+## Structure
+
+```text
+CityFinder.slnx
+src/
+  CityFinder.Core/
+    Models/             Photo, GeoPlace, RenamePlan, SessionDocument, statistiques
+    Naming/             assainissement, parseur, planificateur, catalogue de communes
+    Selection/          état initial (sélection, ville existante, suggestion)
+    Session/            rapprochement session ↔ fichiers
+  CityFinder.Infrastructure/
+    Metadata/           lecture EXIF/XMP, orientation, dimensions
+    Scanning/           énumération et construction des Photo
+    Geocoding/          client Photon, cache local, limiteur
+    Session/            JsonSessionStore atomique + repli AppData
+    Renaming/           préflight, exécution, session, annulation
+  CityFinder.App/
+    ViewModels/         MainViewModel, PhotoViewModel, filtres
+    Views/              confirmation et résultat de renommage
+    Services/           carte WebView2, miniatures, thème, réglages, dialogues
+    Themes/             palette clair/sombre et styles
+    Map/                page Leaflet/MapLibre locale + vendor
+tests/
+  CityFinder.Core.Tests/
+  CityFinder.Infrastructure.Tests/
+maquette/               référence HTML statique (données synthétiques)
+```
 
 ## Pipeline
 
-1. Sélection du dossier (sélecteur natif).
-2. Énumération des photos (JPEG/MPO/TIFF/PNG/WebP ; HEIC best-effort).
-3. Lecture EXIF GPS + orientation (MetadataExtractor), validation.
-4. Miniatures WPF/WIC 640 px, cache disque, chargement progressif.
-5. Déduplication des coordonnées, reverse geocoding Photon, cache, choix de la ville.
-6. Construction des cartes : ville existante, texte, sélection, état de session.
-7. Édition ville/texte, filtres, recherche, carte synchronisée.
-8. Préflight de renommage : noms cibles, collisions, longueur, déjà nommés.
-9. Exécution séquentielle, numérotation automatique des collisions, journal.
-10. Mise à jour de `.cityfinder.json` après chaque fichier ; reprise au prochain scan.
-11. Annulation des renommages enregistrés dans `.cityfinder.json` (noms d'origine conservés).
+1. L'utilisateur choisit un dossier (sélecteur natif, argument de ligne de commande ou glisser-déposer).
+2. `JsonSessionStore.LoadAsync` lit `.cityfinder.json` (ou le repli AppData).
+3. `PhotoScanner.ScanAsync` énumère les extensions compatibles, lit les métadonnées GPS, la date, l'orientation, les dimensions et l'appareil.
+4. `SessionMatcher.Match` rapproche les entrées par nom courant + taille + date de modification.
+5. `InitialStatePolicy.Apply` :
+   - session → ville/texte de la session, photo verrouillée et décochée ;
+   - suffixe de ville reconnu → ville conservée, suggestion Photon si différente ;
+   - sinon ville Photon (ou vide), sélection si GPS et ville disponible.
+6. La grille s'affiche immédiatement. Les vignettes se chargent en arrière-plan et Photon complète les villes progressivement.
+7. L'utilisateur corrige les villes, ajoute un texte, coche/décoche, filtre ou recherche. La carte se synchronise avec la vue filtrée.
+8. « Renommer » construit un `RenamePlan`, affiche un aperçu, puis exécute les renommages séquentiellement.
+9. Après chaque fichier, la session est mise à jour de façon atomique.
+10. En cas d'insatisfaction, « Annuler ces renommages » ou la bannière de reprise restaure les noms d'origine.
+11. Si la session devient vide, le fichier `.cityfinder.json` est supprimé.
+
+## Noms de fichiers
+
+```text
+<base_sans_ville> - <ville>[ , <texte>]<extension>
+```
+
+Règles :
+
+- `base_sans_ville` provient du nom d'origine, débarrassé d'un suffixe ville reconnu ;
+- ville et texte sont normalisés en Unicode, les accents sont conservés ;
+- les caractères interdits Windows sont retirés/remplacés, les espaces sont compactés ;
+- les noms réservés (`CON`, `PRN`, `NUL`, `COM1`…) sont neutralisés ;
+- la longueur du radical est plafonnée ; le manifeste `longPathAware` autorise les chemins longs ;
+- l'extension d'origine est conservée telle quelle ;
+- les noms cibles sont uniques dans le lot et vis-à-vis des fichiers présents ;
+- une collision ajoute ` (2)`, ` (3)`… avant l'extension ;
+- un fichier déjà au nom cible n'est pas déplacé.
+
+Le parseur ne reconnaît une ville que si elle appartient au catalogue connu (liste de communes + villes Photon + villes de session). Il accepte le séparateur actuel `" , "` et l'ancien séparateur espace pour les fichiers déjà nommés. Il utilise le dernier séparateur `" - "` dont le suffixe est reconnu, ce qui autorise les tirets dans le texte.
 
 ## Session `.cityfinder.json`
 
-- Stocké dans le dossier photo, attribut caché Windows, écriture atomique.
-- Contient la version, l'identifiant du dossier, et une entrée par fichier renommé :
-  nom d'origine, nom courant, ville, texte, date, taille/mtime.
-- Au scan, rapprochement par nom + taille + date ; les fichiers déjà renommés sont décochés et verrouillés.
-- Si le fichier de session est absent ou invalide, l'app repart d'un scan normal ; elle ne renomme jamais automatiquement.
-- Repli AppData si le dossier photo est en lecture seule.
+```json
+{
+  "version": 1,
+  "folderPath": "D:\\Photos\\Voyage",
+  "createdUtc": "2026-11-26T21:00:00Z",
+  "updatedUtc": "2026-11-26T21:04:12Z",
+  "entries": [
+    {
+      "id": "identifiant",
+      "originalName": "IMG_0001.jpg",
+      "currentName": "IMG_0001 - Annecy , lac.jpg",
+      "city": "Annecy",
+      "text": "lac",
+      "photonCity": null,
+      "length": 123456,
+      "lastWriteUtc": "2026-08-14T16:20:00Z",
+      "takenAt": null,
+      "renamedUtc": "2026-11-26T21:04:12Z",
+      "batchId": "20261126-220412-abcd"
+    }
+  ]
+}
+```
 
-## Renommage
+- Écriture dans un fichier temporaire puis remplacement atomique.
+- Attribut caché Windows après écriture.
+- Repli déterministe dans `%LOCALAPPDATA%\CityFinder\sessions\<hash-dossier>.json` si le dossier photo est en lecture seule.
+- Le rapprochement au scan se fait par **nom courant + taille + date de modification** (tolérance 2 s). Un fichier modifié hors application n'est pas considéré comme déjà renommé.
+- L'annulation vérifie que le fichier courant existe et que le nom d'origine est libre. Aucun écrasement.
+- Les entrées sont restaurées dans l'ordre chronologique pour gérer les chaînes de renommages.
+- Le fichier est supprimé lorsqu'il ne reste aucune entrée.
 
-Forme : `<base_sans_ville> - <ville>[ , <texte>]<extension>`.
+## Carte WebView2
 
-- Ville et texte assainis (caractères Windows interdits, longueur).
-- Texte optionnel séparé par `" , "` (espace, virgule, espace).
-- Si le nom se termine déjà par la ville/texte cible, il est ignoré.
-- Collision cible existante ou double cible : suffixe ` (2)`, ` (3)`…, journalisé.
-- Préflight avant exécution ; aucun écrasement.
-- **Annulation** : bouton « Annuler les renommages » ; restauration inverse des noms d'origine, avec vérification que le fichier courant correspond au nom cible.
-- Journal CSV optionnel.
+- Page locale servie par `SetVirtualHostNameToFolderMapping` (`cityfinder.local`), aucun serveur externe.
+- Leaflet 1.9.4 + Leaflet.markercluster 1.5.3 + MapLibre GL 5.24.1 + leaflet-maplibre-gl 0.1.4.
+- Styles OpenFreeMap Positron (clair) / Fiord (sombre), attribution permanente.
+- Repères regroupés en clusters ; clic repère → message `photoFocused` vers WPF ; clic carte photo → `focusPhoto(id)`.
+- `setPhotos(points, fit)` met à jour les repères sans reconstruire la couche quand seul l'état change (préserve une info-bulle ouverte).
+- Ajustement automatique aux points au premier affichage et lors du redimensionnement du panneau.
+- Repli : si le style vectoriel échoue, les repères restent utilisables sur un fond quadrillé et un message discret apparaît.
+- La carte seule est un composant web ; fichiers, EXIF, Photon, session et renommage restent en C#.
 
-## Carte
+## Géocodage Photon
 
-- WebView2 local (`appassets.local`), page Leaflet + MapLibre GL + leaflet-maplibre-gl.
-- Styles OpenFreeMap Positron (clair) / Fiord (sombre), attribution OpenStreetMap/OpenFreeMap/OpenMapTiles.
-- 1 repère par photo géolocalisée, clusters, liste de cluster au zoom maximal.
-- Miniature → flyTo + popup ; repère → carte photo mise en évidence et défilement.
-- Aucun préchargement ; cache WebView2 ; fallback quadrillé si le fond échoue.
-- Pont JSON `postMessage` avec WPF.
+- Endpoint `https://photon.komoot.io/reverse`, `lang=fr`, `limit=3`.
+- La commune est choisie parmi `city`, `town`, `village`, `municipality`, `locality`, puis `name` si l'objet est un lieu.
+- Les coordonnées sont arrondies à 5 décimales pour la clé de cache.
+- Cache JSON local `%LOCALAPPDATA%\CityFinder\cache\photon-v1.json`.
+- Espacement minimum ~1,05 s entre requêtes ; une nouvelle tentative sur 429/5xx.
+- Après trois échecs consécutifs, la recherche s'arrête et l'utilisateur peut saisir les villes manuellement.
+- Aucune image, aucun chemin et aucun nom de fichier ne sont envoyés.
 
-## Dépendances
+## Interface WPF
 
-| Composant | Licence |
-|---|---|
-| .NET 10 / WPF | MIT |
-| WPF-UI | MIT |
-| CommunityToolkit.Mvvm | MIT |
-| MetadataExtractor | Apache-2.0 |
-| WebView2 SDK | BSD-3 |
-| Leaflet | BSD-2 |
-| Leaflet.markercluster | MIT |
-| MapLibre GL JS | BSD-3 |
-| leaflet-maplibre-gl | ISC |
-| Photon / OpenFreeMap / OSM | services/données, attribution |
+- Fenêtre chrome personnalisée (`WindowChrome`), boutons accessibles, maximize contraint à la zone de travail du moniteur.
+- Accueil : dossier, reprise du dernier dossier, explication du parcours, note de confidentialité.
+- Résultats : en-tête statistiques, recherche, filtres (Toutes / À traiter / Sans GPS / Renommées), grille de cartes, panneau carte repliable.
+- Carte photo : vignette orientée, ville, suggestion Photon, texte, aperçu du nom cible, état.
+- Bannière de reprise : nombre de fichiers déjà renommés et accès à l'annulation.
+- Dialogues : confirmation avec aperçu des noms, résultat avec échecs/avertissements et annulation.
+- Recherche et édition restent utilisables pendant le géocodage ; les mises à jour de statistiques sont regroupées.
+- Thèmes clair/sombre persistés dans `%LOCALAPPDATA%\CityFinder\settings.json`.
+- Raccourcis : `Ctrl+O` (dossier), `F5` (actualiser).
 
-## Prochaines étapes
+## Tests
 
-1. Scaffold solution + navigation WPF.
-2. Scan + EXIF + miniatures.
-3. Photon + cache.
-4. Grille + édition + session + parseur ville existante.
-5. Carte WebView2.
-6. Préflight + renommage + annulation.
-7. Tests, packaging, documentation.
+- **Core** : assainissement, parseur de ville, planification, collisions, sélection initiale, session, correspondance.
+- **Infrastructure** : aller-retour `.cityfinder.json`, repli, suppression du fichier vide, renommage réel sur dossier temporaire, collision tardive, refus d'écrasement à l'annulation.
+- Vérifications manuelles : parcours complet avec renommage, reprise après redémarrage, annulation, suggestion Photon, texte `" , "`, carte claire/sombre, redimensionnement.
+
+## Distribution
+
+- Publication `win-x64` autonome, sans installation.
+- Inclure `LICENSE`, `THIRD-PARTY-NOTICES.md` et le dossier `Map/` à côté de l'exécutable.
+- Le runtime WebView2 Evergreen reste un prérequis système ; l'application détecte son absence et propose le lien officiel.
+- Les fichiers de données personnelles et les vignettes ne font pas partie du dépôt.
+
+## Limites et évolutions
+
+- Le géocodage initial est volontairement limité ; un cache partagé et un fournisseur configurable pourraient être ajoutés.
+- HEIC/WebP dépendent des codecs Windows.
+- L'interface est en français uniquement.
+- Une liste plus complète des communes françaises pourrait améliorer la reconnaissance des noms externes.
+- Les tests E2E UI pourraient être automatisés avec WinAppDriver/Appium.
+
+## Dépendances et licences
+
+Voir [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md). Toutes les dépendances
+sont sous MIT, Apache-2.0, BSD-2/3, ISC ou licence BSD du SDK Adobe XMP.

@@ -1,0 +1,21 @@
+﻿<Application x:Class="CityFinder.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:CityFinder.App.Converters"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Theme.xaml"/>
+                <ResourceDictionary Source="Themes/Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+            <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+            <converters:EmptyStringToVisibilityConverter x:Key="EmptyStringToVisibility"/>
+            <converters:EmptyStringToVisibilityConverter x:Key="NonEmptyStringToVisibility" Invert="True"/>
+            <converters:MapWidthConverter x:Key="MapWidth"/>
+            <converters:CountToVisibilityConverter x:Key="CountToVisibility"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,7 +1,9 @@
 bin/
 obj/
 .vs/
+dist/
+TestResults/
 *.user
 *.suo
+*.tmp
 .DS_Store
-node_modules/
