@@ -145,7 +145,11 @@ Le parseur ne reconnaît une ville que si elle appartient au catalogue connu (li
 - Résultats : en-tête statistiques, recherche, filtres (Toutes / À traiter / Sans GPS / Renommées), grille de cartes, panneau carte repliable.
 - Carte photo : vignette orientée, ville, suggestion Photon, texte, aperçu du nom cible, état.
 - Bannière de reprise : nombre de fichiers déjà renommés et accès à l'annulation.
-- Dialogues : confirmation avec aperçu des noms, résultat avec échecs/avertissements et annulation.
+- Dialogues : fenêtres WPF sans barre de titre système, avec barre maison et icône applicative.
+  - confirmation avec aperçu des noms ;
+  - résultat avec échecs/avertissements et annulation ;
+  - confirmation d'annulation et messages d'information/erreur dans le même thème clair/sombre.
+- Aucun `MessageBox` système n'est utilisé dans le fonctionnement normal ; un secours technique reste possible si les ressources WPF ne peuvent pas se charger.
 - Recherche et édition restent utilisables pendant le géocodage ; les mises à jour de statistiques sont regroupées.
 - Thèmes clair/sombre persistés dans `%LOCALAPPDATA%\CityFinder\settings.json`.
 - Raccourcis : `Ctrl+O` (dossier), `F5` (actualiser).

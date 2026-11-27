@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using CityFinder.Core.Models;
 
 namespace CityFinder.App.Views;
@@ -51,5 +52,19 @@ public partial class RenameResultWindow : Window
     private void Close_Click(object sender, RoutedEventArgs e)
     {
         DialogResult = false;
+    }
+
+    private void TitleBar_CloseRequested(object? sender, EventArgs e)
+    {
+        DialogResult = false;
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            DialogResult = false;
+            e.Handled = true;
+        }
     }
 }

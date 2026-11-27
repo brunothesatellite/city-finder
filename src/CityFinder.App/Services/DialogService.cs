@@ -31,29 +31,36 @@ public sealed class DialogService : IDialogService
 
     public bool ConfirmUndo(int count)
     {
-        var text =
+        var message =
             $"Restaurer les noms d'origine de {count} fichier(s) ?\n\n" +
             "Les fichiers seront renommés en sens inverse. Aucun fichier existant ne sera écrasé.";
 
-        return Show(text, "Annuler les renommages", MessageBoxButton.YesNo, MessageBoxImage.Warning,
-            MessageBoxResult.No) == MessageBoxResult.Yes;
+        return ShowMessage(
+            "Annuler les renommages",
+            message,
+            DialogTone.Warning,
+            "Oui, restaurer",
+            "Conserver les noms");
     }
 
-    public void ShowInfo(string title, string message) =>
-        Show(message, title, MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK);
+    public void ShowInfo(string title, string message, DialogTone tone = DialogTone.Info) =>
+        ShowMessage(title, message, tone, "Fermer");
 
     public void ShowError(string title, string message) =>
-        Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error, MessageBoxResult.OK);
+        ShowMessage(title, message, DialogTone.Error, "Fermer");
 
-    private static MessageBoxResult Show(
-        string message,
+    private static bool ShowMessage(
         string title,
-        MessageBoxButton buttons,
-        MessageBoxImage image,
-        MessageBoxResult defaultResult)
+        string message,
+        DialogTone tone,
+        string primaryText,
+        string? secondaryText = null)
     {
-        return Owner is null
-            ? MessageBox.Show(message, title, buttons, image, defaultResult)
-            : MessageBox.Show(Owner, message, title, buttons, image, defaultResult);
+        var window = new AppMessageWindow(title, message, tone, primaryText, secondaryText)
+        {
+            Owner = Owner,
+        };
+
+        return window.ShowDialog() == true;
     }
 }

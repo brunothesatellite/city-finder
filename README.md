@@ -4,7 +4,7 @@
 
 CityFinder est une application Windows native en **C# / .NET 10 / WPF**. Elle lit les coordonnées GPS des photos, retrouve la commune avec **Photon/OpenStreetMap**, permet de vérifier le résultat sur une carte, puis renomme les fichiers sélectionnés.
 
-> **État : MVP 0.1 fonctionnel.** L'interface WPF/XAML, la carte WebView2, la reprise de session et l'annulation des renommages sont implémentées et testées.
+> **État : MVP 0.1.1 fonctionnel.** L'interface WPF/XAML, la carte WebView2, la reprise de session et l'annulation des renommages sont implémentées et testées. Les confirmations et messages utilisent des fenêtres entièrement thémées, sans boîte système.
 
 Aucune photo, aucun jeu de données personnel et aucun chemin local ne sont versionnés dans ce dépôt. La maquette publique utilise 110 illustrations SVG et des villes synthétiques.
 
@@ -23,7 +23,8 @@ Aucune photo, aucun jeu de données personnel et aucun chemin local ne sont vers
 - collision automatiquement numérotée ` (2)`, ` (3)`… sans jamais écraser un fichier ;
 - reprise de session via `.cityfinder.json` dans le dossier photo ;
 - annulation des renommages, y compris après redémarrage ;
-- thème clair/sombre, raccourcis clavier, textes français.
+- thème clair/sombre, raccourcis clavier, textes français ;
+- confirmations, résultats et messages dans des fenêtres WPF au thème de l'application, avec barre de titre maison.
 
 ## Format des noms
 
@@ -46,7 +47,7 @@ La ville et le texte sont assainis (caractères interdits Windows, longueur). Le
 
 ### Version portable
 
-1. Télécharger `CityFinder-0.1.0-win-x64.zip` depuis les [releases](https://github.com/brunothesatellite/city-finder/releases/latest).
+1. Télécharger `CityFinder-0.1.1-win-x64.zip` depuis les [releases](https://github.com/brunothesatellite/city-finder/releases/latest).
 2. Décompresser le dossier.
 3. Lancer `CityFinder.exe`. Aucun droit administrateur n'est requis.
 

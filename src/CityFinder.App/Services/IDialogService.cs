@@ -11,7 +11,7 @@ public interface IDialogService
 
     bool ConfirmUndo(int count);
 
-    void ShowInfo(string title, string message);
+    void ShowInfo(string title, string message, DialogTone tone = DialogTone.Info);
 
     void ShowError(string title, string message);
 }

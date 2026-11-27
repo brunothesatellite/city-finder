@@ -1,0 +1,33 @@
+<UserControl x:Class="CityFinder.App.Views.DialogTitleBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+             x:Name="Root"
+             Height="48">
+    <Border Background="{DynamicResource Surface}"
+            BorderBrush="{DynamicResource Border}"
+            BorderThickness="0,0,0,1">
+        <Grid Margin="14,0,8,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Width="26" Height="26" CornerRadius="7" Background="{DynamicResource Accent}">
+                    <Path Data="M12 2C8 2 5 5 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-4-3-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"
+                          Fill="{DynamicResource AccentInk}" Stretch="Uniform" Width="13" Height="13"/>
+                </Border>
+                <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title, ElementName=Root}"
+                               FontSize="12.5" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" MaxWidth="420"/>
+                    <TextBlock Text="CityFinder" FontSize="9.5"
+                               Foreground="{DynamicResource InkMuted}" Margin="0,1,0,0"/>
+                </StackPanel>
+            </StackPanel>
+
+            <Button Style="{StaticResource CloseWindowButton}"
+                    Content="✕" FontSize="11"
+                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                    ToolTip="Fermer" AutomationProperties.Name="Fermer"
+                    shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                    Click="Close_Click"/>
+        </Grid>
+    </Border>
+</UserControl>

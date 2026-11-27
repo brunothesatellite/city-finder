@@ -14,6 +14,7 @@
     <Content Include="Map\**\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/>
     <Content Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/>
     <Content Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/>
+    <Resource Include="Assets\CityFinder.ico"/>
   </ItemGroup>
 
   <PropertyGroup>
@@ -24,8 +25,10 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>CityFinder</AssemblyName>
     <RootNamespace>CityFinder.App</RootNamespace>
+    <ApplicationIcon>Assets\CityFinder.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>brunothesatellite</Authors>
     <Product>CityFinder</Product>
     <Description>Retrouve la commune des photos et l'ajoute au nom du fichier.</Description>

@@ -44,6 +44,11 @@
         </Setter>
     </Style>
 
+    <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="Background" Value="{DynamicResource Danger}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
     <Style x:Key="SecondaryButton" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource Surface}"/>
         <Setter Property="Foreground" Value="{DynamicResource Ink}"/>

@@ -16,6 +16,7 @@ namespace CityFinder.App;
 public partial class App : Application
 {
     private HttpClient? _httpClient;
+    private DialogService? _dialogService;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -53,6 +54,7 @@ public partial class App : Application
             var sessionStore = new JsonSessionStore();
             var scanner = new PhotoScanner();
             var executor = new RenameExecutor(sessionStore);
+            _dialogService = new DialogService();
 
             var viewModel = new MainViewModel(
                 scanner,
@@ -62,7 +64,7 @@ public partial class App : Application
                 new ThumbnailLoader(),
                 settingsStore,
                 settings,
-                new DialogService());
+                _dialogService);
 
             var startupFolder = e.Args.FirstOrDefault(argument =>
                 !argument.StartsWith("--", StringComparison.Ordinal) && Directory.Exists(argument));
@@ -73,11 +75,10 @@ public partial class App : Application
         catch (Exception exception)
         {
             FileLog.Write("Démarrage impossible.", exception);
-            MessageBox.Show(
-                "CityFinder n'a pas pu démarrer.\n\n" + exception.Message,
-                "CityFinder",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            TryShowError(
+                "Démarrage impossible",
+                "CityFinder n'a pas pu démarrer.\n\n" + exception.Message +
+                "\n\nLe journal se trouve dans %LOCALAPPDATA%\\CityFinder\\logs.");
             Shutdown(1);
         }
     }
@@ -86,12 +87,25 @@ public partial class App : Application
     {
         FileLog.Write("Exception d'interface non gérée.", e.Exception);
         e.Handled = true;
-        MessageBox.Show(
+        TryShowError(
+            "Erreur inattendue",
             "Une erreur inattendue est survenue.\n\n" + e.Exception.Message +
-            "\n\nLe journal se trouve dans %LOCALAPPDATA%\\CityFinder\\logs.",
-            "CityFinder",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+            "\n\nLe journal se trouve dans %LOCALAPPDATA%\\CityFinder\\logs.");
+    }
+
+    private void TryShowError(string title, string message)
+    {
+        try
+        {
+            (_dialogService ??= new DialogService()).ShowError(title, message);
+        }
+        catch (Exception exception)
+        {
+            // Ultime secours si les ressources WPF elles-mêmes ne sont pas
+            // disponibles : aucun autre moyen fiable d'afficher l'erreur.
+            FileLog.Write("Impossible d'afficher la fenêtre d'erreur.", exception);
+            MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

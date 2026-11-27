@@ -638,7 +638,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             _dialogs.ShowInfo("Aucun renommage",
                 "Aucun fichier ne peut être renommé pour le moment." +
-                (details.Count > 0 ? "\n\n" + string.Join("\n", details) : string.Empty));
+                (details.Count > 0 ? "\n\n" + string.Join("\n", details) : string.Empty),
+                DialogTone.Warning);
             return;
         }
 
@@ -763,7 +764,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 summary.Add("• " + warning);
             }
 
-            _dialogs.ShowInfo("Annulation terminée", string.Join("\n", summary));
+            _dialogs.ShowInfo("Annulation terminée", string.Join("\n", summary), DialogTone.Success);
             await LoadFolderAsync(FolderPath);
         }
         catch (Exception exception)
