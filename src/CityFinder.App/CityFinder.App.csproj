@@ -27,7 +27,7 @@
     <RootNamespace>CityFinder.App</RootNamespace>
     <ApplicationIcon>Assets\CityFinder.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>brunothesatellite</Authors>
     <Product>CityFinder</Product>

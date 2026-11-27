@@ -4,7 +4,7 @@
 
 CityFinder est une application Windows native en **C# / .NET 10 / WPF**. Elle lit les coordonnées GPS des photos, retrouve la commune avec **Photon/OpenStreetMap**, permet de vérifier le résultat sur une carte, puis renomme les fichiers sélectionnés.
 
-> **État : MVP 0.2.0 fonctionnel.** L'interface WPF/XAML, la carte WebView2, la reprise de session, l'annulation des renommages et la mise à jour automatique sont implémentées et testées. Les confirmations et messages utilisent des fenêtres entièrement thémées, sans boîte système.
+> **État : MVP 0.2.1 fonctionnel.** L'interface WPF/XAML, la carte WebView2, la reprise de session, l'annulation des renommages et la mise à jour automatique sont implémentées et testées. Les confirmations et messages utilisent des fenêtres entièrement thémées, sans boîte système.
 
 Aucune photo, aucun jeu de données personnel et aucun chemin local ne sont versionnés dans ce dépôt. La maquette publique utilise 110 illustrations SVG et des villes synthétiques.
 
@@ -55,7 +55,7 @@ La ville et le texte sont assainis (caractères interdits Windows, longueur). Le
 
 ### Version portable
 
-1. Télécharger `CityFinder-0.2.0-win-x64.zip` depuis les [releases](https://github.com/brunothesatellite/city-finder/releases/latest).
+1. Télécharger `CityFinder-0.2.1-win-x64.zip` depuis les [releases](https://github.com/brunothesatellite/city-finder/releases/latest).
 2. Décompresser le dossier.
 3. Lancer `CityFinder.exe`. Aucun droit administrateur n'est requis.
 
