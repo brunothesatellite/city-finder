@@ -1403,7 +1403,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             filter.Count = filter.Kind switch
             {
                 PhotoFilter.WithGps => stats.Located,
-                PhotoFilter.WithoutCity => AllPhotos.Count(photo => photo.HasGps && !photo.HasCity),
+                PhotoFilter.WithoutCity => AllPhotos.Count(photo => !photo.HasCity),
                 PhotoFilter.MissingGps => stats.MissingGps,
                 PhotoFilter.WithoutText => AllPhotos.Count(photo => !photo.HasText),
                 PhotoFilter.ToDo => AllPhotos.Count(photo => !photo.IsAlreadyRenamed),
@@ -1500,7 +1500,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var matchesFilter = filter switch
         {
             PhotoFilter.WithGps => photo.HasGps,
-            PhotoFilter.WithoutCity => photo.HasGps && !photo.HasCity,
+            PhotoFilter.WithoutCity => !photo.HasCity,
             PhotoFilter.ToDo => !photo.IsAlreadyRenamed,
             PhotoFilter.MissingGps => !photo.HasGps,
             PhotoFilter.WithoutText => !photo.HasText,
