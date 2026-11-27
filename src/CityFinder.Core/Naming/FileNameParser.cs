@@ -3,7 +3,7 @@ namespace CityFinder.Core.Naming;
 public sealed record ParsedFileName(string BaseName, string City, string Text);
 
 /// <summary>
-/// Reads an existing "<c>base - ville[ , texte]</c>" suffix. A candidate is
+/// Reads an existing "<c>base - ville[, texte]</c>" suffix. A candidate is
 /// accepted only when the city is present in the known catalogue, so arbitrary
 /// words are never mistaken for a commune.
 /// </summary>
@@ -59,13 +59,15 @@ public static class FileNameParser
         string suffix,
         KnownCityCatalog knownCities)
     {
-        var textSeparator = suffix.IndexOf(" , ", StringComparison.Ordinal);
+        // The new separator is ", ". Searching for it also accepts the old
+        // " , " form for files named by previous versions.
+        var textSeparator = suffix.IndexOf(", ", StringComparison.Ordinal);
         if (textSeparator > 0)
         {
             var cityPart = suffix[..textSeparator].Trim();
             if (knownCities.TryGet(cityPart, out var canonical))
             {
-                var text = suffix[(textSeparator + 3)..].Trim();
+                var text = suffix[(textSeparator + 2)..].Trim();
                 return new ParsedFileName(baseName, canonical, text);
             }
 

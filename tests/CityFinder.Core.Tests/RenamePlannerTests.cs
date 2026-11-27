@@ -88,6 +88,6 @@ public class RenamePlannerTests
             new[] { Candidate("A.jpg", "Annecy", "été 2023", "IMG") },
             new[] { "A.jpg" });
 
-        Assert.Equal("IMG - Annecy , été 2023.jpg", plan.Items[0].TargetName);
+        Assert.Equal("IMG - Annecy, été 2023.jpg", plan.Items[0].TargetName);
     }
 }

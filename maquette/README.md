@@ -24,7 +24,7 @@ préchargement. Sans réseau, les repères restent affichés sur un fond quadril
 
 ## Nouveautés
 
-- texte optionnel séparé de la ville par `" , "` ;
+- texte optionnel séparé de la ville par `", "` ;
 - détection d'une ville déjà présente dans le nom, verrouillage et suggestion
   Photon ;
 - reprise de session simulée (`localStorage`, `#reprise`) ;

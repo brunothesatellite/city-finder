@@ -6,6 +6,28 @@ namespace CityFinder.App.Services;
 
 public sealed class ThumbnailLoader
 {
+    public string? LoadDataUrl(string path, int? orientation, int decodeWidth = 360, int quality = 72)
+    {
+        var source = Load(path, orientation, decodeWidth);
+        if (source is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var encoder = new JpegBitmapEncoder { QualityLevel = quality };
+            encoder.Frames.Add(BitmapFrame.Create(source));
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+            return "data:image/jpeg;base64," + Convert.ToBase64String(stream.ToArray());
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public BitmapSource? Load(string path, int? orientation, int decodeWidth = 480)
     {
         try

@@ -22,6 +22,16 @@ public class FileNameParserTests
     [Fact]
     public void ParsesCityAndText()
     {
+        var parsed = FileNameParser.Parse("IMG_0001 - Annecy, été 2023.jpg", Catalog);
+        Assert.NotNull(parsed);
+        Assert.Equal("IMG_0001", parsed!.BaseName);
+        Assert.Equal("Annecy", parsed.City);
+        Assert.Equal("été 2023", parsed.Text);
+    }
+
+    [Fact]
+    public void ParsesLegacyCityAndTextSeparator()
+    {
         var parsed = FileNameParser.Parse("IMG_0001 - Annecy , été 2023.jpg", Catalog);
         Assert.NotNull(parsed);
         Assert.Equal("IMG_0001", parsed!.BaseName);

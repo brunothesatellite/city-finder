@@ -10,12 +10,14 @@ using CityFinder.Infrastructure.Geocoding;
 using CityFinder.Infrastructure.Renaming;
 using CityFinder.Infrastructure.Scanning;
 using CityFinder.Infrastructure.Session;
+using CityFinder.Infrastructure.Updates;
 
 namespace CityFinder.App;
 
 public partial class App : Application
 {
     private HttpClient? _httpClient;
+    private HttpClient? _updateHttpClient;
     private DialogService? _dialogService;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -56,6 +58,15 @@ public partial class App : Application
             var executor = new RenameExecutor(sessionStore);
             _dialogService = new DialogService();
 
+            _updateHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
+            var currentVersion = typeof(App).Assembly.GetName().Version ?? new Version(0, 1, 1);
+            var updateApi = Environment.GetEnvironmentVariable("CITYFINDER_UPDATE_API");
+            var updateApiUri = Uri.TryCreate(updateApi, UriKind.Absolute, out var parsedApi)
+                ? parsedApi
+                : null;
+            var updateService = new UpdateService(_updateHttpClient, currentVersion, updateApiUri);
+            UpdateInstaller.CleanupStaging();
+
             var viewModel = new MainViewModel(
                 scanner,
                 geocoder,
@@ -64,7 +75,8 @@ public partial class App : Application
                 new ThumbnailLoader(),
                 settingsStore,
                 settings,
-                _dialogService);
+                _dialogService,
+                updateService);
 
             var startupFolder = e.Args.FirstOrDefault(argument =>
                 !argument.StartsWith("--", StringComparison.Ordinal) && Directory.Exists(argument));
@@ -111,6 +123,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _httpClient?.Dispose();
+        _updateHttpClient?.Dispose();
         base.OnExit(e);
     }
 }

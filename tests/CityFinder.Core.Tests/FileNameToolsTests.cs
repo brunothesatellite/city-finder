@@ -12,24 +12,24 @@ public class FileNameToolsTests
     }
 
     [Fact]
-    public void SeparatesCityAndTextWithCommaSpaces()
+    public void SeparatesCityAndTextWithCommaAndSpace()
     {
         var name = FileNameTools.BuildTargetName("IMG_0001", "Annecy", "été 2023", ".jpg");
-        Assert.Equal("IMG_0001 - Annecy , été 2023.jpg", name);
+        Assert.Equal("IMG_0001 - Annecy, été 2023.jpg", name);
     }
 
     [Fact]
     public void SanitizesForbiddenCharacters()
     {
         var name = FileNameTools.BuildTargetName("IMG:0001", "Le / Havre", "vue ?", ".jpg");
-        Assert.Equal("IMG-0001 - Le Havre , vue.jpg", name);
+        Assert.Equal("IMG-0001 - Le Havre, vue.jpg", name);
     }
 
     [Fact]
     public void KeepsAccentsInOutput()
     {
         var name = FileNameTools.BuildTargetName("IMG_0001", "Aix-en-Provence", "château", ".JPG");
-        Assert.Equal("IMG_0001 - Aix-en-Provence , château.JPG", name);
+        Assert.Equal("IMG_0001 - Aix-en-Provence, château.JPG", name);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class FileNameToolsTests
     {
         var name = FileNameTools.BuildTargetName(new string('a', 400), "Annecy", "un texte", ".jpg");
         Assert.True(FileNameTools.StripExtension(name).Length <= FileNameTools.MaxStemLength);
-        Assert.EndsWith(" - Annecy , un texte.jpg", name);
+        Assert.EndsWith(" - Annecy, un texte.jpg", name);
     }
 
     [Fact]

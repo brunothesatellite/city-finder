@@ -13,6 +13,7 @@ using CityFinder.Core.Session;
 using CityFinder.Infrastructure.Geocoding;
 using CityFinder.Infrastructure.Renaming;
 using CityFinder.Infrastructure.Scanning;
+using CityFinder.Infrastructure.Updates;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -29,6 +30,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly SettingsStore _settingsStore;
     private readonly AppSettings _settings;
     private readonly IDialogService _dialogs;
+    private readonly UpdateService _updates;
     private readonly DispatcherTimer _mapDebounce;
 
     private IMapService _map = new NullMapService();
@@ -49,6 +51,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool _isMapReady;
     private bool _isDarkTheme;
     private bool _mapUnavailable;
+    private bool _isUpdateCheckInProgress;
+    private bool _suppressMapFocus;
     private string _mapErrorMessage = string.Empty;
     private bool _suppressStats;
     private int _matchedSessionCount;
@@ -63,6 +67,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private int _mapPointCount;
     private int _mapCityCount;
     private string _recentFolderLabel = string.Empty;
+    private string _mapBasemap = BasemapCatalog.Default;
 
     public MainViewModel(
         PhotoScanner scanner,
@@ -72,7 +77,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ThumbnailLoader thumbnails,
         SettingsStore settingsStore,
         AppSettings settings,
-        IDialogService dialogs)
+        IDialogService dialogs,
+        UpdateService updates)
     {
         _scanner = scanner;
         _geocoder = geocoder;
@@ -82,15 +88,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _settingsStore = settingsStore;
         _settings = settings;
         _dialogs = dialogs;
+        _updates = updates;
 
         _isMapVisible = settings.MapVisible;
         _isDarkTheme = ThemeManager.IsDark(settings.Theme);
+        _mapBasemap = BasemapCatalog.Normalize(settings.MapBasemap);
 
         Filters = new ObservableCollection<FilterOption>
         {
             new(PhotoFilter.All, "Toutes"),
-            new(PhotoFilter.ToDo, "À traiter"),
+            new(PhotoFilter.WithGps, "Avec GPS"),
+            new(PhotoFilter.WithoutCity, "Sans ville"),
             new(PhotoFilter.MissingGps, "Sans GPS"),
+            new(PhotoFilter.WithoutText, "Sans texte additionnel"),
+            new(PhotoFilter.ToDo, "À traiter"),
             new(PhotoFilter.Renamed, "Renommées"),
         };
         _selectedFilter = Filters[0];
@@ -190,7 +201,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             if (value is not null)
             {
-                _ = _map.FocusPhotoAsync(value.Id);
+                // A selection coming from the map must not re-focus the map:
+                // that would force a zoom and collapse an open spiderfy.
+                if (!_suppressMapFocus)
+                {
+                    _ = _map.FocusPhotoAsync(value.Id);
+                }
+
                 FocusPhotoRequested?.Invoke(value);
             }
 
@@ -220,6 +237,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 return;
             }
 
+            OnPropertyChanged(nameof(MapSurfaceVisible));
             NotifyViewState();
             NotifyCommands();
         }
@@ -294,6 +312,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _isMapReady, value))
             {
                 OnPropertyChanged(nameof(MapLoading));
+                OnPropertyChanged(nameof(MapSurfaceVisible));
             }
         }
     }
@@ -393,6 +412,36 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _recentFolderLabel, value);
     }
 
+    public string MapAttribution => BasemapCatalog.AttributionFor(_mapBasemap);
+
+    public string SelectAllLabel =>
+        VisibleSelectablePhotos() is { Count: > 0 } photos && photos.All(photo => photo.IsSelected)
+            ? "Tout décocher"
+            : "Tout cocher";
+
+    private IReadOnlyList<PhotoViewModel> VisibleSelectablePhotos() =>
+        PhotosView.Cast<PhotoViewModel>()
+            .Where(photo => photo.IsSelectionEnabled)
+            .ToList();
+
+    public bool CanApplyBulkEdit() => !IsBusy && VisibleSelectablePhotos().Count > 0;
+
+    public bool MapSurfaceVisible => IsMapReady && !IsBusy;
+
+    public bool IsUpdateCheckInProgress
+    {
+        get => _isUpdateCheckInProgress;
+        private set
+        {
+            if (SetProperty(ref _isUpdateCheckInProgress, value))
+            {
+                NotifyCommands();
+            }
+        }
+    }
+
+    public string CurrentVersionLabel => _updates.CurrentVersionLabel;
+
     public bool CanResumeLast =>
         !string.IsNullOrWhiteSpace(_settings.LastFolder) && Directory.Exists(_settings.LastFolder);
 
@@ -490,8 +539,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void AttachMap(IMapService map)
     {
         _map.PhotoFocused -= OnMapPhotoFocused;
+        _map.PhotoDetailsRequested -= OnMapPhotoDetailsRequested;
+        _map.ThumbnailRequested -= OnMapThumbnailRequested;
+        _map.BasemapChanged -= OnMapBasemapChanged;
+
         _map = map;
+
         _map.PhotoFocused += OnMapPhotoFocused;
+        _map.PhotoDetailsRequested += OnMapPhotoDetailsRequested;
+        _map.ThumbnailRequested += OnMapThumbnailRequested;
+        _map.BasemapChanged += OnMapBasemapChanged;
+        _ = _map.SetBasemapAsync(_mapBasemap);
+
         if (HasFolder)
         {
             _ = PushMapAsync(true);
@@ -800,6 +859,232 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IsMapVisible = !IsMapVisible;
     }
 
+    [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]
+    private async Task CheckForUpdatesAsync()
+    {
+        await CheckForUpdatesCoreAsync(userInitiated: true);
+    }
+
+    private bool CanCheckForUpdates() => !IsBusy && !IsUpdateCheckInProgress;
+
+    public async Task AutoCheckForUpdatesAsync()
+    {
+        if (_settings.LastUpdateCheckUtc is { } last &&
+            DateTime.UtcNow - last < TimeSpan.FromHours(24))
+        {
+            return;
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(4));
+
+        // A large folder scan can still be running; wait for a calm moment
+        // instead of postponing the check to the next launch.
+        var deadline = DateTime.UtcNow.AddMinutes(5);
+        while (IsBusy && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3));
+        }
+
+        if (IsBusy || IsUpdateCheckInProgress)
+        {
+            return;
+        }
+
+        await CheckForUpdatesCoreAsync(userInitiated: false);
+    }
+
+    private async Task CheckForUpdatesCoreAsync(bool userInitiated)
+    {
+        if (IsUpdateCheckInProgress)
+        {
+            return;
+        }
+
+        IsUpdateCheckInProgress = true;
+        try
+        {
+            var result = await _updates.CheckAsync();
+            _settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            _settingsStore.Save(_settings);
+
+            if (!result.IsUpdateAvailable)
+            {
+                if (userInitiated)
+                {
+                    _dialogs.ShowInfo(
+                        "Mises à jour",
+                        $"CityFinder {CurrentVersionLabel} est à jour.",
+                        DialogTone.Success);
+                }
+
+                return;
+            }
+
+            if (!userInitiated &&
+                string.Equals(_settings.SkippedUpdateTag, result.Release.Tag,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var postponed = _dialogs.ShowUpdateAvailable(result.Release, _updates);
+            if (postponed)
+            {
+                _settings.SkippedUpdateTag = result.Release.Tag;
+                _settingsStore.Save(_settings);
+            }
+        }
+        catch (Exception exception)
+        {
+            FileLog.Write("Vérification des mises à jour impossible.", exception);
+            if (userInitiated)
+            {
+                _dialogs.ShowError(
+                    "Mises à jour",
+                    "Impossible de vérifier les mises à jour.\n\n" + exception.Message);
+            }
+        }
+        finally
+        {
+            IsUpdateCheckInProgress = false;
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanToggleSelectAll))]
+    private void ToggleSelectAll()
+    {
+        var targets = VisibleSelectablePhotos();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var select = !targets.All(photo => photo.IsSelected);
+        _suppressStats = true;
+        try
+        {
+            foreach (var photo in targets)
+            {
+                photo.IsSelected = select;
+            }
+        }
+        finally
+        {
+            _suppressStats = false;
+        }
+
+        NotifyStats();
+        ScheduleMap();
+    }
+
+    private bool CanToggleSelectAll() => VisibleSelectablePhotos().Count > 0;
+
+    [RelayCommand(CanExecute = nameof(CanApplyBulkEdit))]
+    private void ApplyBulkCity()
+    {
+        ApplyBulkEdit(BulkEditKind.City);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanApplyBulkEdit))]
+    private void ApplyBulkText()
+    {
+        ApplyBulkEdit(BulkEditKind.Text);
+    }
+
+    private void ApplyBulkEdit(BulkEditKind kind)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var selected = AllPhotos
+            .Where(photo => photo.IsSelected && !photo.IsSelectionLocked)
+            .ToList();
+        var visible = PhotosView.Cast<PhotoViewModel>()
+            .Where(photo => !photo.IsSelectionLocked)
+            .ToList();
+
+        if (selected.Count == 0 && visible.Count == 0)
+        {
+            return;
+        }
+
+        var result = _dialogs.ShowBulkEdit(kind, selected, visible);
+        if (result is null)
+        {
+            return;
+        }
+
+        var targets = result.Scope == BulkEditScope.Selected ? selected : visible;
+        var value = kind == BulkEditKind.City
+            ? NameText.SanitizeCity(result.Value)
+            : NameText.SanitizeText(result.Value);
+
+        var changed = targets
+            .Where(photo => !string.Equals(
+                kind == BulkEditKind.City ? photo.City : photo.Text,
+                value,
+                StringComparison.Ordinal))
+            .ToList();
+
+        if (changed.Count == 0)
+        {
+            _dialogs.ShowInfo(
+                kind == BulkEditKind.City ? "Ville groupée" : "Texte additionnel groupé",
+                "Ces photos portent déjà cette valeur.",
+                DialogTone.Info);
+            return;
+        }
+
+        var overwriteCount = changed.Count(photo =>
+        {
+            var current = kind == BulkEditKind.City ? photo.City : photo.Text;
+            return !string.IsNullOrWhiteSpace(current) && !NameText.EqualsLoosely(current, value);
+        });
+
+        if (overwriteCount > 0 && !_dialogs.ConfirmBulkOverwrite(kind, overwriteCount, value))
+        {
+            return;
+        }
+
+        _suppressStats = true;
+        try
+        {
+            foreach (var photo in changed)
+            {
+                if (kind == BulkEditKind.City)
+                {
+                    photo.City = value;
+                }
+                else
+                {
+                    photo.Text = value;
+                }
+            }
+        }
+        finally
+        {
+            _suppressStats = false;
+        }
+
+        RefreshView();
+
+        StatusMessage = kind == BulkEditKind.City
+            ? value.Length == 0
+                ? $"Ville retirée de {changed.Count} photo(s)."
+                : $"Ville « {value} » appliquée à {changed.Count} photo(s)."
+            : value.Length == 0
+                ? $"Texte additionnel retiré de {changed.Count} photo(s)."
+                : $"Texte « {value} » appliqué à {changed.Count} photo(s).";
+    }
+
+    public void OpenPhotoDetails(PhotoViewModel photo)
+    {
+        _dialogs.ShowPhotoDetails(photo);
+        RefreshView();
+    }
+
     private async Task LoadFolderAsync(string folderPath)
     {
         _loadCts?.Cancel();
@@ -822,6 +1107,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         foreach (var photo in AllPhotos)
         {
             photo.Changed -= OnPhotoChanged;
+            photo.Committed -= OnPhotoCommitted;
         }
 
         AllPhotos.Clear();
@@ -876,6 +1162,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             {
                 var viewModel = new PhotoViewModel(photo);
                 viewModel.Changed += OnPhotoChanged;
+                viewModel.Committed += OnPhotoCommitted;
                 AllPhotos.Add(viewModel);
             }
 
@@ -1090,6 +1377,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ScheduleMap();
     }
 
+    private void OnPhotoCommitted(PhotoViewModel photo)
+    {
+        // Keep the "missing value" filters and city/text searches in sync
+        // without removing a card while the user is still typing.
+        if (SelectedFilter?.Kind is PhotoFilter.WithoutCity or PhotoFilter.WithoutText ||
+            !string.IsNullOrWhiteSpace(SearchText))
+        {
+            RefreshView();
+        }
+    }
+
     private void NotifyStats()
     {
         var stats = PhotoStatisticsCalculator.Calculate(AllPhotos.Select(photo => photo.Model));
@@ -1100,16 +1398,25 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RenamedCount = stats.Renamed;
         SelectedCount = stats.Selected;
 
-        if (Filters.Count == 4)
+        foreach (var filter in Filters)
         {
-            Filters[0].Count = stats.Total;
-            Filters[1].Count = AllPhotos.Count(photo => !photo.IsAlreadyRenamed);
-            Filters[2].Count = stats.MissingGps;
-            Filters[3].Count = stats.Renamed;
+            filter.Count = filter.Kind switch
+            {
+                PhotoFilter.WithGps => stats.Located,
+                PhotoFilter.WithoutCity => AllPhotos.Count(photo => photo.HasGps && !photo.HasCity),
+                PhotoFilter.MissingGps => stats.MissingGps,
+                PhotoFilter.WithoutText => AllPhotos.Count(photo => !photo.HasText),
+                PhotoFilter.ToDo => AllPhotos.Count(photo => !photo.IsAlreadyRenamed),
+                PhotoFilter.Renamed => stats.Renamed,
+                _ => stats.Total,
+            };
         }
 
         var visible = PhotosView.Cast<PhotoViewModel>().ToList();
         VisibleCount = visible.Count;
+
+        OnPropertyChanged(nameof(SelectAllLabel));
+
         var locatedVisible = visible.Where(photo => photo.HasGps).ToList();
         MapPointCount = locatedVisible.Count;
         MapCityCount = locatedVisible
@@ -1147,6 +1454,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         RenameCommand.NotifyCanExecuteChanged();
         UndoAllCommand.NotifyCanExecuteChanged();
+        ToggleSelectAllCommand.NotifyCanExecuteChanged();
+        ApplyBulkCityCommand.NotifyCanExecuteChanged();
+        ApplyBulkTextCommand.NotifyCanExecuteChanged();
+        CheckForUpdatesCommand.NotifyCanExecuteChanged();
     }
 
     private void UpdateRecentFolder()
@@ -1188,8 +1499,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var filter = SelectedFilter?.Kind ?? PhotoFilter.All;
         var matchesFilter = filter switch
         {
+            PhotoFilter.WithGps => photo.HasGps,
+            PhotoFilter.WithoutCity => photo.HasGps && !photo.HasCity,
             PhotoFilter.ToDo => !photo.IsAlreadyRenamed,
             PhotoFilter.MissingGps => !photo.HasGps,
+            PhotoFilter.WithoutText => !photo.HasText,
             PhotoFilter.Renamed => photo.IsAlreadyRenamed,
             _ => true,
         };
@@ -1260,7 +1574,61 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             SearchText = string.Empty;
         }
 
-        SelectedPhoto = photo;
+        _suppressMapFocus = true;
+        try
+        {
+            SelectedPhoto = photo;
+        }
+        finally
+        {
+            _suppressMapFocus = false;
+        }
+    }
+
+    private void OnMapPhotoDetailsRequested(object? sender, string id)
+    {
+        var photo = AllPhotos.FirstOrDefault(candidate => candidate.Id == id);
+        if (photo is not null)
+        {
+            OpenPhotoDetails(photo);
+        }
+    }
+
+    private void OnMapThumbnailRequested(object? sender, string id)
+    {
+        _ = SendMapThumbnailAsync(id);
+    }
+
+    private async Task SendMapThumbnailAsync(string id)
+    {
+        var photo = AllPhotos.FirstOrDefault(candidate => candidate.Id == id);
+        if (photo is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var dataUrl = await Task.Run(() =>
+                _thumbnails.LoadDataUrl(photo.FullPath, photo.Model.Orientation, 360, 72));
+
+            if (!string.IsNullOrWhiteSpace(dataUrl))
+            {
+                await _map.SetThumbnailAsync(id, dataUrl);
+            }
+        }
+        catch (Exception exception)
+        {
+            FileLog.Write("Miniature de carte impossible.", exception);
+        }
+    }
+
+    private void OnMapBasemapChanged(object? sender, string mode)
+    {
+        _mapBasemap = BasemapCatalog.Normalize(mode);
+        _settings.MapBasemap = _mapBasemap;
+        _settingsStore.Save(_settings);
+        OnPropertyChanged(nameof(MapAttribution));
     }
 
     public void Dispose()
@@ -1269,9 +1637,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _loadCts?.Dispose();
         _mapDebounce.Stop();
         _map.PhotoFocused -= OnMapPhotoFocused;
+        _map.PhotoDetailsRequested -= OnMapPhotoDetailsRequested;
+        _map.ThumbnailRequested -= OnMapThumbnailRequested;
+        _map.BasemapChanged -= OnMapBasemapChanged;
         foreach (var photo in AllPhotos)
         {
             photo.Changed -= OnPhotoChanged;
+            photo.Committed -= OnPhotoCommitted;
         }
     }
 }

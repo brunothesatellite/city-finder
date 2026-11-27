@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -23,6 +24,7 @@ public sealed class MapBridge : IMapService
 
     private IReadOnlyList<MapPointDto> _lastPoints = Array.Empty<MapPointDto>();
     private string _theme = "light";
+    private string _basemap = BasemapCatalog.Default;
     private bool _fitPending;
     private bool _ready;
     private bool _initialized;
@@ -35,6 +37,9 @@ public sealed class MapBridge : IMapService
     }
 
     public event EventHandler<string>? PhotoFocused;
+    public event EventHandler<string>? PhotoDetailsRequested;
+    public event EventHandler<string>? ThumbnailRequested;
+    public event EventHandler<string>? BasemapChanged;
     public event EventHandler<string>? InitializationFailed;
 
     public bool IsReady => _ready;
@@ -78,6 +83,8 @@ public sealed class MapBridge : IMapService
             core.Settings.IsStatusBarEnabled = false;
             core.Settings.IsZoomControlEnabled = false;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+            core.NewWindowRequested += OnNewWindowRequested;
+            core.NavigationStarting += OnNavigationStarting;
             core.SetVirtualHostNameToFolderMapping(
                 "cityfinder.local",
                 _mapFolder,
@@ -155,9 +162,11 @@ public sealed class MapBridge : IMapService
         var json = JsonSerializer.Serialize(points, JsonOptions);
         var fitJson = fit ? "true" : "false";
         var theme = JsonSerializer.Serialize(_theme);
+        var basemap = JsonSerializer.Serialize(_basemap);
 
         await ExecuteScriptAsync(
             $"window.cityfinder && window.cityfinder.setTheme({theme});" +
+            $"window.cityfinder && window.cityfinder.setBasemap({basemap});" +
             $"window.cityfinder && window.cityfinder.setPhotos({json}, {fitJson});",
             cancellationToken).ConfigureAwait(true);
     }
@@ -198,6 +207,33 @@ public sealed class MapBridge : IMapService
             .ConfigureAwait(true);
     }
 
+    public async Task SetBasemapAsync(string mode)
+    {
+        _basemap = BasemapCatalog.Normalize(mode);
+        if (!_ready)
+        {
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(_basemap);
+        await ExecuteScriptAsync($"window.cityfinder && window.cityfinder.setBasemap({json});")
+            .ConfigureAwait(true);
+    }
+
+    public async Task SetThumbnailAsync(string id, string dataUrl)
+    {
+        if (!_ready || string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(dataUrl))
+        {
+            return;
+        }
+
+        var idJson = JsonSerializer.Serialize(id);
+        var dataJson = JsonSerializer.Serialize(dataUrl);
+        await ExecuteScriptAsync(
+            $"window.cityfinder && window.cityfinder.setThumbnail({idJson}, {dataJson});")
+            .ConfigureAwait(true);
+    }
+
     private async Task ExecuteScriptAsync(string script, CancellationToken cancellationToken = default)
     {
         if (!_ready && !_initialized)
@@ -229,6 +265,43 @@ public sealed class MapBridge : IMapService
         }
     }
 
+    private static void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs args)
+    {
+        args.Handled = true;
+        OpenExternal(args.Uri);
+    }
+
+    private static void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs args)
+    {
+        if (args.Uri.StartsWith("https://cityfinder.local/", StringComparison.OrdinalIgnoreCase) ||
+            args.Uri.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        // Attribution links must never replace the local map page.
+        args.Cancel = true;
+        OpenExternal(args.Uri);
+    }
+
+    private static void OpenExternal(string? uri)
+    {
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) ||
+            (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(parsed.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            FileLog.Write("Ouverture d'un lien de carte impossible.", exception);
+        }
+    }
+
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs args)
     {
         try
@@ -254,29 +327,54 @@ public sealed class MapBridge : IMapService
                 return;
             }
 
-            if (string.Equals(type, "photoFocused", StringComparison.Ordinal) &&
-                document.RootElement.TryGetProperty("id", out var idElement) &&
-                idElement.GetString() is { Length: > 0 } id)
+            if (string.Equals(type, "basemapChanged", StringComparison.Ordinal) &&
+                document.RootElement.TryGetProperty("mode", out var modeElement))
             {
-                var handler = PhotoFocused;
-                if (handler is null)
-                {
-                    return;
-                }
+                var mode = BasemapCatalog.Normalize(modeElement.GetString());
+                _basemap = mode;
+                Dispatch(BasemapChanged, mode);
+                return;
+            }
 
-                if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
-                {
-                    dispatcher.Invoke(() => handler(this, id));
-                }
-                else
-                {
-                    handler(this, id);
-                }
+            if (!document.RootElement.TryGetProperty("id", out var idElement) ||
+                idElement.GetString() is not { Length: > 0 } id)
+            {
+                return;
+            }
+
+            if (string.Equals(type, "photoFocused", StringComparison.Ordinal))
+            {
+                Dispatch(PhotoFocused, id);
+            }
+            else if (string.Equals(type, "showPhotoDetails", StringComparison.Ordinal))
+            {
+                Dispatch(PhotoDetailsRequested, id);
+            }
+            else if (string.Equals(type, "requestThumbnail", StringComparison.Ordinal))
+            {
+                Dispatch(ThumbnailRequested, id);
             }
         }
         catch (Exception exception)
         {
             FileLog.Write("Message de carte illisible.", exception);
+        }
+    }
+
+    private void Dispatch(EventHandler<string>? handler, string value)
+    {
+        if (handler is null)
+        {
+            return;
+        }
+
+        if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+        {
+            dispatcher.Invoke(() => handler(this, value));
+        }
+        else
+        {
+            handler(this, value);
         }
     }
 }

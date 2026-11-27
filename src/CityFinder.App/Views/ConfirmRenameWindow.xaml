@@ -68,11 +68,13 @@
         <Border Grid.Row="3" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}"
                 BorderThickness="1" CornerRadius="12">
             <ListBox x:Name="ItemsList" Background="Transparent" BorderThickness="0"
+                     Foreground="{DynamicResource Ink}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      Padding="6">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
                         <Setter Property="Focusable" Value="False"/>
                         <Setter Property="Template">
                             <Setter.Value>
@@ -115,7 +117,10 @@
                                 <TextBlock Grid.Column="1" Text="→" HorizontalAlignment="Center"
                                            VerticalAlignment="Center" Foreground="{DynamicResource InkMuted}"/>
                                 <TextBlock Grid.Column="2" Text="{Binding Target}" FontSize="12"
-                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Ink}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Target}"/>
                             </Grid>
                         </Border>
                     </DataTemplate>

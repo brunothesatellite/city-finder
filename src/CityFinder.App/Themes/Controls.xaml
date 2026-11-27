@@ -366,6 +366,7 @@
     <!-- ============================ Filters ============================ -->
     <Style x:Key="FilterListBox" TargetType="ListBox">
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
@@ -410,6 +411,7 @@
     <!-- ============================ Photo grid ============================ -->
     <Style x:Key="PhotoListBox" TargetType="ListBox">
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="0,2,0,16"/>
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
@@ -428,6 +430,7 @@
 
     <Style x:Key="PhotoListItem" TargetType="ListBoxItem">
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
         <Setter Property="AutomationProperties.Name" Value="{Binding FileName}"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="Margin" Value="0"/>
@@ -498,6 +501,76 @@
                 <Setter Property="Foreground" Value="{DynamicResource Danger}"/>
             </DataTrigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- ============================ Choice radios ============================ -->
+    <Style x:Key="ChoiceRadioButton" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Root" Background="{DynamicResource Surface}"
+                            BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                            CornerRadius="9" Padding="12,9">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Dot" Width="16" Height="16" CornerRadius="8"
+                                    BorderBrush="{DynamicResource Border}" BorderThickness="1.5"
+                                    VerticalAlignment="Center">
+                                <Ellipse x:Name="Inner" Width="8" Height="8"
+                                         Fill="{DynamicResource Accent}" Visibility="Collapsed"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" Margin="9,0,0,0"
+                                              VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoft}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                            <Setter TargetName="Dot" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                            <Setter TargetName="Inner" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource InkMuted}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================ Detail sheet ============================ -->
+    <Style x:Key="DetailMetaCard" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Surface}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="Padding" Value="10,8"/>
+    </Style>
+
+    <Style x:Key="DetailMetaLabel" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="8.5"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource InkMuted}"/>
+    </Style>
+
+    <Style x:Key="DetailMetaValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Margin" Value="0,3,0,0"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
     <!-- ============================ Misc ============================ -->

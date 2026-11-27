@@ -5,8 +5,11 @@ namespace CityFinder.App.ViewModels;
 public enum PhotoFilter
 {
     All,
-    ToDo,
+    WithGps,
+    WithoutCity,
     MissingGps,
+    WithoutText,
+    ToDo,
     Renamed,
 }
 

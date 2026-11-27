@@ -3,11 +3,11 @@ namespace CityFinder.Core.Naming;
 public static class FileNameTools
 {
     public const string CitySeparator = " - ";
-    public const string TextSeparator = " , ";
+    public const string TextSeparator = ", ";
     public const int MaxStemLength = 200;
 
     /// <summary>
-    /// Builds "<c>base - ville[ , texte][ (n)]</c>" with the original
+    /// Builds "<c>base - ville[, texte][ (n)]</c>" with the original
     /// extension. Returns an empty string when the city is empty.
     /// </summary>
     public static string BuildTargetName(

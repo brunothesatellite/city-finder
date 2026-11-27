@@ -48,12 +48,24 @@ Les textes complets de ces licences sont inclus dans
 - **OpenFreeMap** : styles et tuiles vectorielles, https://openfreemap.org
 - **OpenMapTiles** : schéma de tuiles, https://www.openmaptiles.org
 - **OpenStreetMap** : données © OpenStreetMap contributors, ODbL,
-  https://www.openstreetmap.org/copyright
+  https://www.openstreetmap.org/copyright ; tuiles standard
+  https://tile.openstreetmap.org (conditions d'usage OSM).
+- **Esri** : imagerie satellite World Imagery et calque de libellés World
+  Boundaries and Places, https://www.arcgis.com ; attribution Esri, Maxar,
+  Earthstar Geographics affichée avec le fond.
+- **OpenTopoMap** : fond topographique, CC-BY-SA,
+  https://opentopomap.org ; données © OpenStreetMap contributors.
+
+L'attribution du fond actif est affichée en permanence dans la carte (et
+rappelée sous le panneau). Aucune tuile Google n'est utilisée : Google Maps
+n'est pas proposé sans clé API et son usage hors API n'est pas autorisé par
+ses conditions. Les fournisseurs ci-dessus ne nécessitent aucune clé.
+
 - **Photon** (komoot) : API publique de géocodage inverse,
   https://photon.komoot.io
-
-L'attribution OpenStreetMap / OpenFreeMap / OpenMapTiles est affichée en
-permanence sous la carte.
+- **GitHub API / Releases** : vérification de version et téléchargement de
+  l'archive officielle, https://api.github.com et https://github.com. Aucun
+  contenu utilisateur n'est transmis.
 
 ## Polices
 

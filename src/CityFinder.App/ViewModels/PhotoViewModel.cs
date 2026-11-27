@@ -36,6 +36,9 @@ public sealed partial class PhotoViewModel : ObservableObject
 
     public event Action<PhotoViewModel>? Changed;
 
+    /// <summary>Raised when a field edit is committed (blur, suggestion, clear).</summary>
+    public event Action<PhotoViewModel>? Committed;
+
     public Photo Model => _photo;
     public string Id => _photo.Id;
     public string FileName => _photo.FileName;
@@ -53,6 +56,85 @@ public sealed partial class PhotoViewModel : ObservableObject
     public string ExistingCityText => $"Ville déjà dans le nom : {ExistingCity}";
     public string? PhotonCity => _photo.PhotonCity;
     public string? Country => _photo.Country;
+    public string? State => _photo.State;
+    public string? County => _photo.County;
+    public int? Width => _photo.Width;
+    public int? Height => _photo.Height;
+
+    public string GpsBadgeText => HasGps ? "Géolocalisée" : "Sans GPS";
+    public string DetailEyebrow => HasGps ? "PHOTO GÉOLOCALISÉE" : "PHOTO SANS COORDONNÉES";
+
+    public string DetailSubtitle
+    {
+        get
+        {
+            var city = string.IsNullOrWhiteSpace(City) ? "Ville à confirmer" : City.Trim();
+            var parts = new List<string> { city };
+            if (!string.IsNullOrWhiteSpace(Country))
+            {
+                parts.Add(Country.Trim());
+            }
+
+            if (IsDirty)
+            {
+                parts.Add("modifiée");
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
+
+    public string CityHint
+    {
+        get
+        {
+            if (IsAlreadyRenamed && !IsDirty)
+            {
+                return "Photo renommée. Modifiez la ville ou le texte pour la déverrouiller.";
+            }
+
+            if (IsDirty)
+            {
+                return "Ville ou texte modifié. Le nouveau nom est prévisualisé ci-dessous.";
+            }
+
+            if (HasExistingCity)
+            {
+                return "Le nom du fichier contient déjà une ville. Conservez-la ou utilisez la suggestion Photon.";
+            }
+
+            return "Ville détectée par Photon. Modifiez-la si une commune voisine vous semble plus juste.";
+        }
+    }
+
+    public string DimensionsLabel => Width is > 0 && Height is > 0
+        ? $"{Width} × {Height}"
+        : "—";
+
+    public string DeviceLabel
+    {
+        get
+        {
+            var camera = string.Join(' ', new[] { _photo.CameraMake, _photo.CameraModel }
+                .Where(value => !string.IsNullOrWhiteSpace(value))).Trim();
+            return camera.Length == 0 ? "—" : camera;
+        }
+    }
+
+    public string RegionLabel
+    {
+        get
+        {
+            var parts = new[] { _photo.Country, _photo.State, _photo.County }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            return parts.Count == 0 ? "—" : string.Join(" · ", parts);
+        }
+    }
+
+    public string PhotonCityLabel => string.IsNullOrWhiteSpace(_photo.PhotonCity) ? "—" : _photo.PhotonCity;
 
     public string City
     {
@@ -170,6 +252,8 @@ public sealed partial class PhotoViewModel : ObservableObject
             OnPropertyChanged(nameof(IsSelectionEnabled));
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(StatusTone));
+            OnPropertyChanged(nameof(CityHint));
+            OnPropertyChanged(nameof(DetailSubtitle));
         }
     }
 
@@ -287,6 +371,7 @@ public sealed partial class PhotoViewModel : ObservableObject
     {
         City = NameText.SanitizeCity(City);
         Text = NameText.SanitizeText(Text);
+        Committed?.Invoke(this);
     }
 
     [RelayCommand]
@@ -301,12 +386,14 @@ public sealed partial class PhotoViewModel : ObservableObject
         _photo.SuggestionCity = null;
         SuggestionCity = null;
         Changed?.Invoke(this);
+        Committed?.Invoke(this);
     }
 
     [RelayCommand]
     private void ClearText()
     {
         Text = string.Empty;
+        Committed?.Invoke(this);
     }
 
     public void ApplyPhoton(GeoPlace place)
@@ -316,7 +403,12 @@ public sealed partial class PhotoViewModel : ObservableObject
         _photo.State = place.State;
         _photo.County = place.County;
         OnPropertyChanged(nameof(PhotonCity));
+        OnPropertyChanged(nameof(PhotonCityLabel));
         OnPropertyChanged(nameof(Country));
+        OnPropertyChanged(nameof(State));
+        OnPropertyChanged(nameof(County));
+        OnPropertyChanged(nameof(RegionLabel));
+        OnPropertyChanged(nameof(DetailSubtitle));
 
         if (IsFromSession)
         {
@@ -339,6 +431,8 @@ public sealed partial class PhotoViewModel : ObservableObject
             OnPropertyChanged(nameof(IsDirty));
             OnPropertyChanged(nameof(IsSelectionLocked));
             OnPropertyChanged(nameof(IsSelectionEnabled));
+            OnPropertyChanged(nameof(DetailSubtitle));
+            OnPropertyChanged(nameof(CityHint));
             if (!IsAlreadyRenamed && HasGps && !_selectionTouched)
             {
                 SetSelectedSilently(true);
@@ -485,5 +579,7 @@ public sealed partial class PhotoViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSelectionEnabled));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(StatusTone));
+        OnPropertyChanged(nameof(DetailSubtitle));
+        OnPropertyChanged(nameof(CityHint));
     }
 }

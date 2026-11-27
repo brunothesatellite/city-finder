@@ -61,6 +61,16 @@ body {
     font-size: 12px;
 }
 
+/* OSM is a light raster basemap; dim it slightly in the dark theme so labels
+   keep a comfortable contrast against the dark application chrome. */
+html[data-theme="dark"][data-basemap="osm"] .leaflet-tile-pane {
+    filter: brightness(0.72) saturate(0.82) contrast(1.05);
+}
+
+html[data-theme="dark"] .cf-layer[data-layer="osm"] .cf-layer__preview img {
+    filter: brightness(0.72) saturate(0.82) contrast(1.05);
+}
+
 .leaflet-bar,
 .leaflet-control-attribution {
     border: 1px solid var(--border) !important;
@@ -106,36 +116,53 @@ body {
 
 .cf-marker {
     position: relative;
-    width: 22px;
-    height: 22px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: var(--accent);
-    border: 2.5px solid var(--surface);
-    box-shadow: 0 3px 10px var(--shadow), 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
-    transition: transform 120ms ease, background 120ms ease;
+    background: var(--surface-alt);
+    border: 3px solid var(--surface);
+    box-shadow: 0 3px 12px var(--shadow),
+                0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+    overflow: hidden;
+    transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
-.cf-marker span {
-    position: absolute;
-    inset: 6px;
+.cf-marker img {
+    display: block;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
-    background: var(--accent-ink);
-    opacity: 0.9;
+    object-fit: cover;
+}
+
+.cf-marker__camera {
+    position: absolute;
+    inset: 0;
+    width: 19px;
+    height: 19px;
+    margin: auto;
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .cf-marker:hover,
 .cf-marker.is-selected {
-    transform: scale(1.16);
+    transform: scale(1.12);
+}
+
+.cf-marker.is-selected {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent),
+                0 5px 16px var(--shadow);
 }
 
 .cf-marker.is-active {
-    background: var(--active);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--active) 25%, transparent), 0 5px 16px var(--shadow);
-    transform: scale(1.34);
-}
-
-.cf-marker.is-active span {
-    background: var(--surface);
+    border-color: var(--active);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--active) 30%, transparent),
+                0 6px 18px var(--shadow);
+    transform: scale(1.24);
 }
 
 .cf-cluster-wrap {
@@ -169,9 +196,10 @@ body {
     background: var(--surface);
     color: var(--ink);
     border: 1px solid var(--border);
-    border-radius: 13px;
+    border-radius: 14px;
     box-shadow: 0 14px 36px var(--shadow);
     padding: 0;
+    overflow: hidden;
 }
 
 .cf-popup-shell .leaflet-popup-content {
@@ -185,14 +213,63 @@ body {
 }
 
 .cf-popup-shell a.leaflet-popup-close-button {
-    color: var(--muted);
-    padding: 7px 7px 0 0;
-    font-size: 18px;
+    top: 7px;
+    right: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    background: rgba(18, 16, 13, 0.55);
+    color: #fff;
+    font-size: 16px;
+    line-height: 1;
+    z-index: 3;
 }
 
 .cf-popup {
     width: 238px;
-    padding: 13px 27px 12px 14px;
+}
+
+.cf-popup__thumb {
+    position: relative;
+    height: 122px;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, var(--surface-alt)),
+                        var(--surface-alt));
+    overflow: hidden;
+}
+
+.cf-popup__thumb img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cf-popup__thumb img[data-cf-thumb] {
+    opacity: 0;
+}
+
+.cf-popup__thumb-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.cf-popup__body {
+    padding: 11px 14px 12px;
 }
 
 .cf-popup__top {
@@ -200,7 +277,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }
 
 .cf-popup__status {
@@ -242,23 +319,216 @@ body {
     margin-top: 5px;
 }
 
-.cf-popup__button {
-    width: 100%;
+.cf-popup__actions {
+    display: flex;
+    gap: 6px;
     margin-top: 10px;
-    padding: 7px 9px;
+}
+
+.cf-popup__button {
+    flex: 1;
+    padding: 7px 8px;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface-alt);
     color: var(--ink);
     font: inherit;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
 }
 
 .cf-popup__button:hover {
     border-color: var(--accent);
     color: var(--accent);
+}
+
+.cf-popup__button--primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+.cf-popup__button--primary:hover {
+    color: var(--accent-ink);
+    opacity: 0.9;
+}
+
+/* ============================ Layers control ============================ */
+.cf-layers {
+    position: relative;
+}
+
+.cf-layers__toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 11px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 5px 18px var(--shadow);
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cf-layers__toggle:hover {
+    background: var(--surface-alt);
+}
+
+.cf-layers__toggle svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cf-layers__panel {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 9px);
+    width: 274px;
+    padding: 7px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 18px 44px var(--shadow);
+}
+
+.cf-layers__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 6px 7px;
+}
+
+.cf-layers__head strong {
+    font-size: 11.5px;
+}
+
+.cf-layers__close {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.cf-layers__close:hover {
+    background: var(--surface-alt);
+    color: var(--ink);
+}
+
+.cf-layers__list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.cf-layer {
+    display: grid;
+    grid-template-columns: 66px minmax(0, 1fr) 16px;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 5px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cf-layer:hover {
+    background: var(--surface-alt);
+}
+
+.cf-layer.is-active {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.cf-layer__preview {
+    position: relative;
+    display: block;
+    width: 66px;
+    height: 48px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface-alt);
+    overflow: hidden;
+}
+
+.cf-layer__preview img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+html[data-theme="dark"] .cf-layer__preview-light {
+    display: none;
+}
+
+html:not([data-theme="dark"]) .cf-layer__preview-dark {
+    display: none;
+}
+
+.cf-layer__text {
+    min-width: 0;
+}
+
+.cf-layer__text strong {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.cf-layer__text small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cf-layer__check {
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0;
+    text-align: center;
+}
+
+.cf-layer.is-active .cf-layer__check {
+    opacity: 1;
+}
+
+.cf-layers__note {
+    margin: 6px 6px 2px;
+    color: var(--muted);
+    font-size: 8.5px;
 }
 
 /* ============================ Overlays ============================ */
@@ -289,8 +559,8 @@ body {
 }
 
 .map-overlay--offline {
+    top: 14px;
     left: 14px;
-    bottom: 14px;
 }
 
 .map-overlay--empty {

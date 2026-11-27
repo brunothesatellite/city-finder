@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Navigation;
 using System.Windows.Threading;
 using CityFinder.App.Services;
@@ -88,6 +89,8 @@ public partial class MainWindow : Window
             {
                 _viewModel.SetMapUnavailable(_mapBridge.InitializationError ?? "raison inconnue");
             }
+
+            _ = _viewModel.AutoCheckForUpdatesAsync();
         }
         catch (Exception exception)
         {
@@ -160,6 +163,38 @@ public partial class MainWindow : Window
         }
 
         return paths.FirstOrDefault(Directory.Exists);
+    }
+
+    private void Thumbnail_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 ||
+            sender is not FrameworkElement { DataContext: PhotoViewModel photo })
+        {
+            return;
+        }
+
+        if (IsInsideCheckBox(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        _viewModel.OpenPhotoDetails(photo);
+        e.Handled = true;
+    }
+
+    private static bool IsInsideCheckBox(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is CheckBox)
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
     }
 
     private void CityBox_LostFocus(object sender, RoutedEventArgs e)

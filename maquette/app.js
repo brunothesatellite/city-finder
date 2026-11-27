@@ -241,7 +241,7 @@
     const text = sanitizeUserText(photo.userText);
     if (!city) return photo.name;
     const stem = photo.stem || baseOf(photo.name);
-    return `${stem} - ${city}${text ? ` , ${text}` : ""}${extensionOf(photo.name)}`;
+    return `${stem} - ${city}${text ? `, ${text}` : ""}${extensionOf(photo.name)}`;
   }
 
   function proposedName(photo) {
@@ -353,7 +353,7 @@
       const existingText = parsed ? normalizeCity(parsed.text) : "";
       const stem = parsed?.stem || baseOf(photo.name);
       const originalName = parsed
-        ? `${stem} - ${existingCity}${existingText ? ` , ${existingText}` : ""}${extensionOf(photo.name)}`
+        ? `${stem} - ${existingCity}${existingText ? `, ${existingText}` : ""}${extensionOf(photo.name)}`
         : photo.name;
       const originalCity = existingCity || detectedCity;
       return {
@@ -1206,7 +1206,7 @@
       updateMapMarkers({ fit: false });
     }
     if (!silent) {
-      const label = [normalizeCity(photo.city), normalizeCity(photo.userText)].filter(Boolean).join(" , ");
+      const label = [normalizeCity(photo.city), normalizeCity(photo.userText)].filter(Boolean).join(", ");
       announce(`${photo.name} : ${label || "aucune ville"}.`);
     }
   }
